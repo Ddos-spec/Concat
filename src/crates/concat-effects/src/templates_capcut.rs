@@ -50,73 +50,100 @@ impl AspectPreset {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ViralTemplate {
     /// Unique template identifier.
-    pub id: &'static str,
+    pub id: String,
     /// Display name.
-    pub name: &'static str,
+    pub name: String,
     /// Category tag (`Trending`, `Velocity`, `AI Podcast`, `Aesthetic`).
-    pub category: &'static str,
+    pub category: String,
     /// Target aspect ratio.
     pub aspect: AspectPreset,
     /// Velocity curve preset applied to clips.
     pub speed_ramp: SpeedRampPreset,
     /// Built-in GPU effect package IDs automatically applied.
-    pub effect_ids: &'static [&'static str],
+    pub effect_ids: Vec<String>,
     /// Whether automatic audio beat-sync cuts are enabled.
     pub auto_beat_sync: bool,
     /// Whether smart 9:16 face-tracking auto-reframe is enabled.
     pub auto_reframe: bool,
 }
 
+impl ViralTemplate {
+    /// Helper to construct a static template.
+    pub fn new(
+        id: &str,
+        name: &str,
+        category: &str,
+        aspect: AspectPreset,
+        speed_ramp: SpeedRampPreset,
+        effect_ids: &[&str],
+        auto_beat_sync: bool,
+        auto_reframe: bool,
+    ) -> Self {
+        Self {
+            id: id.to_owned(),
+            name: name.to_owned(),
+            category: category.to_owned(),
+            aspect,
+            speed_ramp,
+            effect_ids: effect_ids.iter().map(|&s| s.to_owned()).collect(),
+            auto_beat_sync,
+            auto_reframe,
+        }
+    }
+}
+
 /// Built-in library of 100% free viral templates (unlocked from CapCut Pro).
-pub const BUILTIN_TEMPLATES: &[ViralTemplate] = &[
-    ViralTemplate {
-        id: "template.jedag-jedug-bass",
-        name: "Jedag-Jedug Bass Zoom",
-        category: "Trending",
-        aspect: AspectPreset::Vertical9x16,
-        speed_ramp: SpeedRampPreset::JumpCut,
-        effect_ids: &["concat.jedag-jedug", "concat.bloom-pulse", "concat.chromatic-aberration"],
-        auto_beat_sync: true,
-        auto_reframe: true,
-    },
-    ViralTemplate {
-        id: "template.velocity-hero-edit",
-        name: "Velocity Hero Montage",
-        category: "Velocity",
-        aspect: AspectPreset::Vertical9x16,
-        speed_ramp: SpeedRampPreset::Hero,
-        effect_ids: &["concat.contrast-pop", "concat.bloom-pulse"],
-        auto_beat_sync: true,
-        auto_reframe: true,
-    },
-    ViralTemplate {
-        id: "template.podcast-shorts-ai",
-        name: "AI Podcast Smart Shorts",
-        category: "AI Podcast",
-        aspect: AspectPreset::Vertical9x16,
-        speed_ramp: SpeedRampPreset::Normal,
-        effect_ids: &["concat.face-retouch", "concat.clean"],
-        auto_beat_sync: false,
-        auto_reframe: true,
-    },
-    ViralTemplate {
-        id: "template.bullet-time-cinematic",
-        name: "Bullet-Time SlowMo 4K",
-        category: "Velocity",
-        aspect: AspectPreset::Landscape16x9,
-        speed_ramp: SpeedRampPreset::Bullet,
-        effect_ids: &["concat.classic-chrome", "concat.adjust"],
-        auto_beat_sync: true,
-        auto_reframe: false,
-    },
-    ViralTemplate {
-        id: "template.beauty-glow-vlog",
-        name: "Beauty Glow Daily Vlog",
-        category: "Aesthetic",
-        aspect: AspectPreset::Vertical9x16,
-        speed_ramp: SpeedRampPreset::Montage,
-        effect_ids: &["concat.face-retouch", "concat.bright"],
-        auto_beat_sync: false,
-        auto_reframe: true,
-    },
-];
+pub fn builtin_templates() -> Vec<ViralTemplate> {
+    vec![
+        ViralTemplate::new(
+            "template.jedag-jedug-bass",
+            "Jedag-Jedug Bass Zoom",
+            "Trending",
+            AspectPreset::Vertical9x16,
+            SpeedRampPreset::JumpCut,
+            &["concat.jedag-jedug", "concat.bloom-pulse", "concat.chromatic-aberration"],
+            true,
+            true,
+        ),
+        ViralTemplate::new(
+            "template.velocity-hero-edit",
+            "Velocity Hero Montage",
+            "Velocity",
+            AspectPreset::Vertical9x16,
+            SpeedRampPreset::Hero,
+            &["concat.contrast-pop", "concat.bloom-pulse"],
+            true,
+            true,
+        ),
+        ViralTemplate::new(
+            "template.podcast-shorts-ai",
+            "AI Podcast Smart Shorts",
+            "AI Podcast",
+            AspectPreset::Vertical9x16,
+            SpeedRampPreset::Normal,
+            &["concat.face-retouch", "concat.clean"],
+            false,
+            true,
+        ),
+        ViralTemplate::new(
+            "template.bullet-time-cinematic",
+            "Bullet-Time SlowMo 4K",
+            "Velocity",
+            AspectPreset::Landscape16x9,
+            SpeedRampPreset::Bullet,
+            &["concat.classic-chrome", "concat.adjust"],
+            true,
+            false,
+        ),
+        ViralTemplate::new(
+            "template.beauty-glow-vlog",
+            "Beauty Glow Daily Vlog",
+            "Aesthetic",
+            AspectPreset::Vertical9x16,
+            SpeedRampPreset::Montage,
+            &["concat.face-retouch", "concat.bright"],
+            false,
+            true,
+        ),
+    ]
+}
