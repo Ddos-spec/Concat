@@ -1,0 +1,14 @@
+{
+    "effect": {
+        "Link": [
+            {
+                "path": "Curves/",
+                "type": "AmazingFeature",
+                "zorder": 5010
+            }
+        ],
+        "exclusiveScene": []
+    },
+    "name": "2021_04_14_16_32_48_86d025b011ea978facde48001122",
+    "version": "9.5.0"
+}
