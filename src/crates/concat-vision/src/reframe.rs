@@ -64,7 +64,7 @@ pub fn compute_reframe_trajectory(
     timed_masks: &[(f64, &Mask)],
     source_aspect: f32,
     target_aspect: f32,
-    Responsiveness: f32,
+    responsiveness: f32,
 ) -> Vec<(f64, ReframeWindow)> {
     if timed_masks.is_empty() {
         return Vec::new();
@@ -90,7 +90,7 @@ pub fn compute_reframe_trajectory(
         })
         .collect();
 
-    let alpha = Responsiveness.clamp(0.02, 0.85);
+    let alpha = responsiveness.clamp(0.02, 0.85);
     let mut forward = raw_centers.clone();
     for i in 1..forward.len() {
         forward[i].0 = forward[i - 1].0 + alpha * (raw_centers[i].0 - forward[i - 1].0);

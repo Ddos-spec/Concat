@@ -49,6 +49,15 @@ impl Mask {
         self.height
     }
 
+    /// Probability at (x, y) in 0..=255, or 0 if out of bounds.
+    pub fn get(&self, x: u32, y: u32) -> u8 {
+        if x < self.width && y < self.height {
+            self.data[(y * self.width + x) as usize]
+        } else {
+            0
+        }
+    }
+
     /// The bytes, row-major from the top-left.
     pub fn bytes(&self) -> &[u8] {
         &self.data
