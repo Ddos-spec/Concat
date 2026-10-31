@@ -393,7 +393,7 @@ impl Engine {
 
     /// Applies or updates the real WGSL `concat.face-retouch` shader on all clips.
     pub fn set_face_retouch(&self, smoothing: f64, threshold: f64) -> Result<(), MobileError> {
-        use concat_project::ClipPatch;
+        use concat_project::commands::ClipPatch;
         use concat_project::model::AppliedFilter;
         {
             let mut session = self.session();
@@ -428,7 +428,7 @@ impl Engine {
 
     /// Applies a 1-click CapCut Viral Template (aspect ratio + speed curve + GPU shader chain).
     pub fn apply_viral_template(&self, template_name: String) -> Result<Vec<ClipView>, MobileError> {
-        use concat_project::ClipPatch;
+        use concat_project::commands::ClipPatch;
         use concat_project::model::AppliedFilter;
         let (ratio, preset_id, effect_ids): (&str, &str, &[&str]) = match template_name.as_str() {
             "Jedag-Jedug Bass" => (
