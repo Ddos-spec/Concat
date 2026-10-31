@@ -120,3 +120,39 @@ pub fn compute_reframe_trajectory(
         })
         .collect()
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_mask_returns_center_centroid() {
+        let mask = Mask::filled(32, 18, 0);
+        let (cx, cy) = subject_centroid(&mask);
+        assert!((cx - 0.5).abs() < 1e-4);
+        assert!((cy - 0.5).abs() < 1e-4);
+    }
+
+    #[test]
+    fn reframe_tracks_subject_and_clamps_crop_window() {
+        let mut m1 = Mask::filled(160, 90, 0);
+        let mut m2 = Mask::filled(160, 90, 0);
+        for y in 30..60 {
+            for x in 10..30 {
+                m1.bytes_mut()[y * 160 + x] = 255;
+            }
+            for x in 130..150 {
+                m2.bytes_mut()[y * 160 + x] = 255;
+            }
+        }
+        let timed = vec![(0.0, &m1), (0.5, &m1), (1.0, &m2), (1.5, &m2)];
+        let traj = compute_reframe_trajectory(&timed, 16.0 / 9.0, 9.0 / 16.0, 0.5);
+        assert_eq!(traj.len(), 4);
+        assert!(traj[0].1.center_x < traj[3].1.center_x);
+        for (_, win) in &traj {
+            let half_w = win.width * 0.5;
+            assert!(win.center_x >= half_w - 1e-4 && win.center_x <= 1.0 - half_w + 1e-4);
+        }
+    }
+}

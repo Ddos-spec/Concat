@@ -335,6 +335,158 @@ impl Engine {
     pub fn reset_stats(&self) {
         self.renderer.reset_stats();
     }
+
+    /// Applies a CapCut velocity curve preset ("normal", "montage", "hero", "bullet",
+    /// "jump-cut", "flash-in", "flash-out") to all clips on the timeline.
+    pub fn set_speed_preset(&self, preset_name: String) -> Result<Vec<ClipView>, MobileError> {
+        let key = preset_name.trim().to_ascii_lowercase().replace(' ', "-");
+        let curve = if key == "normal" || key.is_empty() {
+            None
+        } else {
+            Some(
+                concat_project::speed::preset(&key)
+                    .ok_or_else(|| format!("unknown speed preset: {preset_name}"))?,
+            )
+        };
+        {
+            let mut session = self.session();
+            let clip_ids: Vec<String> = session
+                .project()
+                .active()
+                .clips
+                .iter()
+                .map(|c| c.id.clone())
+                .collect();
+            for clip_id in clip_ids {
+                session.apply(Command::SetClipSpeedCurve {
+                    clip_id,
+                    curve: curve.clone(),
+                    ripple: true,
+                })?;
+            }
+            session.save(None)?;
+        }
+        self.edited();
+        Ok(self.clips())
+    }
+
+    /// Sets the timeline aspect ratio ("9:16", "16:9", "1:1", "4:5").
+    pub fn set_aspect_ratio(&self, ratio: String) -> Result<VideoInfo, MobileError> {
+        let (width, height) = match ratio.trim() {
+            "9:16" => (1080, 1920),
+            "16:9" => (1920, 1080),
+            "1:1" => (1080, 1080),
+            "4:5" => (1080, 1350),
+            other => return Err(format!("unsupported aspect ratio: {other}").into()),
+        };
+        {
+            let mut session = self.session();
+            let mut settings = session.video();
+            settings.width = width;
+            settings.height = height;
+            session.set_video(settings)?;
+            session.save(None)?;
+        }
+        self.edited();
+        Ok(self.video())
+    }
+
+    /// Applies or updates the real WGSL `concat.face-retouch` shader on all clips.
+    pub fn set_face_retouch(&self, smoothing: f64, threshold: f64) -> Result<(), MobileError> {
+        use concat_project::ClipPatch;
+        use concat_project::model::AppliedFilter;
+        {
+            let mut session = self.session();
+            let clips: Vec<(String, Vec<AppliedFilter>)> = session
+                .project()
+                .active()
+                .clips
+                .iter()
+                .map(|c| (c.id.clone(), c.video_effects.clone()))
+                .collect();
+            for (clip_id, mut effects) in clips {
+                effects.retain(|e| e.id != "concat.face-retouch");
+                if smoothing > 0.5 {
+                    let mut filter = AppliedFilter::new("concat.face-retouch");
+                    filter.params.insert("smoothing".to_owned(), smoothing.clamp(0.0, 100.0));
+                    filter.params.insert("threshold".to_owned(), threshold.clamp(5.0, 50.0));
+                    effects.push(filter);
+                }
+                session.apply(Command::UpdateClip {
+                    clip_id,
+                    patch: ClipPatch {
+                        video_effects: Some(effects),
+                        ..Default::default()
+                    },
+                })?;
+            }
+            session.save(None)?;
+        }
+        self.edited();
+        Ok(())
+    }
+
+    /// Applies a 1-click CapCut Viral Template (aspect ratio + speed curve + GPU shader chain).
+    pub fn apply_viral_template(&self, template_name: String) -> Result<Vec<ClipView>, MobileError> {
+        use concat_project::ClipPatch;
+        use concat_project::model::AppliedFilter;
+        let (ratio, preset_id, effect_ids): (&str, &str, &[&str]) = match template_name.as_str() {
+            "Jedag-Jedug Bass" => (
+                "9:16",
+                "jump-cut",
+                &["concat.jedag-jedug", "concat.bloom-pulse", "concat.chromatic-aberration"],
+            ),
+            "Velocity Hero" => (
+                "9:16",
+                "hero",
+                &["concat.contrast-pop", "concat.bloom-pulse"],
+            ),
+            "AI Podcast Shorts" => (
+                "9:16",
+                "normal",
+                &["concat.face-retouch", "concat.clean"],
+            ),
+            "Bullet-Time 4K" => (
+                "16:9",
+                "bullet",
+                &["concat.classic-chrome", "concat.adjust"],
+            ),
+            "Beauty Glow Vlog" => (
+                "9:16",
+                "montage",
+                &["concat.face-retouch", "concat.bright"],
+            ),
+            other => return Err(format!("unknown template: {other}").into()),
+        };
+        let _ = self.set_aspect_ratio(ratio.to_owned())?;
+        let _ = self.set_speed_preset(preset_id.to_owned())?;
+        {
+            let mut session = self.session();
+            let clip_ids: Vec<String> = session
+                .project()
+                .active()
+                .clips
+                .iter()
+                .map(|c| c.id.clone())
+                .collect();
+            let effects: Vec<AppliedFilter> = effect_ids
+                .iter()
+                .map(|&id| AppliedFilter::new(id))
+                .collect();
+            for clip_id in clip_ids {
+                session.apply(Command::UpdateClip {
+                    clip_id,
+                    patch: ClipPatch {
+                        video_effects: Some(effects.clone()),
+                        ..Default::default()
+                    },
+                })?;
+            }
+            session.save(None)?;
+        }
+        self.edited();
+        Ok(self.clips())
+    }
 }
 
 impl Engine {

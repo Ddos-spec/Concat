@@ -189,7 +189,7 @@ private fun Editor(
             for (ratio in listOf("9:16", "16:9", "1:1", "4:5")) {
                 FilterChip(
                     selected = selectedAspect == ratio,
-                    onClick = { selectedAspect = ratio },
+                    onClick = { selectedAspect = ratio; runCatching { video = engine.setAspectRatio(ratio) } },
                     label = { Text(ratio, fontSize = 11.sp) },
                 )
             }
@@ -278,6 +278,10 @@ private fun Editor(
                                 selected = selectedSpeedPreset == preset,
                                 onClick = {
                                     selectedSpeedPreset = preset
+                                    runCatching {
+                                        clips = engine.setSpeedPreset(preset)
+                                        duration = engine.duration()
+                                    }
                                     message = "Applied CapCut Velocity Curve: $preset (100% Free)"
                                 },
                                 label = { Text(preset, fontSize = 11.sp) },
@@ -325,6 +329,7 @@ private fun Editor(
                             valueRange = 0f..100f,
                             onValueChange = {
                                 faceRetouchStrength = it
+                                runCatching { engine.setFaceRetouch(it.toDouble(), 18.0) }
                                 message = "Bilateral Skin Retouch: ${it.toInt()}% (Zero Paywall)"
                             },
                         )
@@ -374,6 +379,11 @@ private fun Editor(
                                             selectedSpeedPreset = "Montage"
                                             faceRetouchStrength = 65f
                                         }
+                                    }
+                                    runCatching {
+                                        clips = engine.applyViralTemplate(tpl)
+                                        duration = engine.duration()
+                                        video = engine.video()
                                     }
                                     message = "Applied 1-Click Viral Template: $tpl"
                                 },

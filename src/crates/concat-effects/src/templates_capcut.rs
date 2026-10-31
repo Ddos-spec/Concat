@@ -147,3 +147,39 @@ pub fn builtin_templates() -> Vec<ViralTemplate> {
         ),
     ]
 }
+
+
+/// Finds a built-in viral template by ID or display name.
+pub fn find_template(query: &str) -> Option<ViralTemplate> {
+    let q = query.trim();
+    builtin_templates()
+        .into_iter()
+        .find(|t| t.id.eq_ignore_ascii_case(q) || t.name.eq_ignore_ascii_case(q))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Catalogue;
+
+    #[test]
+    fn every_builtin_template_references_existing_gpu_effects() {
+        let catalogue = Catalogue::builtin();
+        let templates = builtin_templates();
+        assert!(!templates.is_empty());
+        for tpl in &templates {
+            let (w, h) = tpl.aspect.dimensions();
+            assert!(w > 0 && h > 0);
+            assert!(!tpl.aspect.label().is_empty());
+            for effect_id in &tpl.effect_ids {
+                assert!(
+                    catalogue.get(effect_id).is_some(),
+                    "Template {} references missing effect {}",
+                    tpl.id,
+                    effect_id
+                );
+            }
+        }
+        assert!(find_template("template.jedag-jedug-bass").is_some());
+    }
+}
