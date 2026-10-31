@@ -10,7 +10,7 @@ name: CI
 # digest, in scripts/ci/deps.lock.
 on:
   push:
-    branches: [main]
+    branches: [main, feat/android-mobile, feat/windows-desktop]
   pull_request:
   workflow_dispatch:
   # release.yml runs this before it builds anything: a tag on a red tree

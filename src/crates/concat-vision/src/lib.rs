@@ -50,6 +50,7 @@ pub mod brush;
 pub mod compact;
 pub mod enhance;
 pub mod mask;
+pub mod reframe;
 pub mod models;
 pub mod onnx;
 #[cfg(feature = "infer")]

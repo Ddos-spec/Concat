@@ -31,7 +31,9 @@ pub mod filters;
 pub mod looks;
 pub mod manifest;
 pub mod shader;
+pub mod speed_ramp;
 pub mod template;
+pub mod templates_capcut;
 
 mod builtins {
     include!(concat!(env!("OUT_DIR"), "/builtins.rs"));
