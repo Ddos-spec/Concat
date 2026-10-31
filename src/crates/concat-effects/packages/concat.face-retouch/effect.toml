@@ -8,12 +8,12 @@ kind = "effect"
 category = "Retouch"
 shelves = ["Featured"]
 order = 12
-intensity = "smooth"
+intensity = "smoothing"
 aliases = ["face-retouch", "beauty"]
 description = "Edge-preserving bilateral skin smoothing and pore softening (100% free, unlocked from CapCut Pro)."
 
 [[param]]
-key = "smooth"
+key = "smoothing"
 label = "Smooth Skin"
 min = 0
 max = 100

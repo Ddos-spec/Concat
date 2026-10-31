@@ -1,4 +1,4 @@
-struct Params { smooth: f32, threshold: f32 }
+struct Params { smoothing: f32, threshold: f32 }
 
 // Edge-preserving bilateral skin smoothing: averages neighbouring pixels
 // weighted by photometric distance in display space, softening pores and
@@ -6,7 +6,7 @@ struct Params { smooth: f32, threshold: f32 }
 // every neighbour equals the centre pixel, preserving exact linearity.
 fn effect(uv: vec2<f32>) -> vec4<f32> {
     let center = sample(uv);
-    let strength = params.smooth * 0.01;
+    let strength = params.smoothing * 0.01;
     if (strength <= 0.0) {
         return center;
     }
