@@ -7,18 +7,74 @@
 
 <div align="center">
 
-<img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/editor.png" alt="Concat Editor Workspace" width="100%" />
-
 <p align="center">
   <a href="https://github.com/Ddos-spec/Concat"><img src="https://img.shields.io/badge/Repo-Ddos--spec%2FConcat-0568FD?style=flat&logo=github&labelColor=212123" alt="GitHub Repo" /></a>
+  <a href="https://github.com/Ddos-spec/Concat/releases/tag/v0.2.8-unlocked"><img src="https://img.shields.io/badge/Release-v0.2.8--unlocked-brightgreen?style=flat&logo=github&labelColor=212123" alt="Latest Release" /></a>
   <a href="https://github.com/Ddos-spec/Concat/tree/feat/windows-desktop"><img src="https://img.shields.io/badge/Branch-feat%2Fwindows--desktop-2ea44f?style=flat&logo=git&labelColor=212123" alt="Branch Desktop" /></a>
   <a href="https://github.com/Ddos-spec/Concat/tree/feat/android-mobile"><img src="https://img.shields.io/badge/Branch-feat%2Fandroid--mobile-00E5FF?style=flat&logo=android&labelColor=212123" alt="Branch Mobile" /></a>
   <img src="https://img.shields.io/badge/Paywall-100%25%20Bebas-brightgreen?style=flat&labelColor=212123" alt="Zero Paywall" />
-  <img src="https://img.shields.io/badge/Engine-Rust%202024%20%2B%20WGSL%20GPU-orange?style=flat&logo=rust&labelColor=212123" alt="Rust 2024 Engine" />
   <img src="https://img.shields.io/badge/Lisensi-AGPL%20v3-0568FD?style=flat&logo=gnu&labelColor=212123" alt="License: AGPL-3.0-or-later" />
 </p>
 
+### ⚡ Link Download Langsung (Versi Terbaru Tanpa Ribet)
+<p align="center">
+  <a href="https://github.com/Ddos-spec/Concat/releases/download/v0.2.8-unlocked/Concat-0.2.8-windows-x86_64-setup.exe">
+    <img src="https://img.shields.io/badge/Download%20untuk%20Windows-Installer%20(.exe)%20--%2082.6%20MB-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows Installer" height="42" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/Ddos-spec/Concat/releases/download/v0.2.8-unlocked/Concat-0.2.8-android-arm64.apk">
+    <img src="https://img.shields.io/badge/Download%20untuk%20Android-Package%20(.apk)%20--%2074.5%20MB-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download Android APK" height="42" />
+  </a>
+</p>
+<p align="center">
+  <sub>Semua file instalasi 100% mandiri, bekerja offline, dan seluruh fitur Pro sudah terbuka tanpa perlu akun, langganan, ataupun watermark.</sub>
+</p>
+
 [English](../README.md) · **Bahasa Indonesia**
+
+</div>
+
+---
+
+## 📸 Tampilan Antarmuka Desktop Concat
+
+Berikut adalah tampilan nyata antarmuka ruang kerja Concat Desktop saat digunakan untuk proses editing:
+
+<p align="center">
+  <img src="../assets/app_showcase/desktop_editor_dark.png" alt="Antarmuka Ruang Kerja Concat Desktop" width="100%" />
+</p>
+
+* **Bilah Atas**: Manajemen proyek, pemilih rasio aspek langsung (`9:16`, `16:9`, `1:1`, `4:5`), dan preset ekspor 4K.
+* **Panel Kiri**: Manajemen aset, katalog filter & shader GPU (`concat-effects`), generator suara AI (`Kokoro`), dan auto-caption (`Whisper`).
+* **Monitor Tengah**: Viewport GPU real-time dengan akselerasi hardware WgpuCompositor tanpa drop-frame.
+* **Timeline Bawah**: Multi-track magnetik, editor kurva keyframe, penanda irama ketukan musik (*beat-sync*), dan spline kecepatan velocity.
+
+---
+
+## 📱 Tampilan Antarmuka Android Mobile
+
+<div align="center">
+
+```
+┌───────────────────────────────────────────────┐
+│ [4K 60FPS • FREE]   (9:16) (16:9) (1:1) (VULKAN)│ ← Bilah Rasio Cepat
+├───────────────────────────────────────────────┤
+│                                               │
+│             MONITOR PREVIEW UTAMA             │
+│            (Viewport GPU Real-Time)           │
+│                                               │
+├───────────────────────────────────────────────┤
+│ [+ Media]  [ ▶ Putar ]   0.50s / 2.00s        │ ← Kontrol Pemutaran
+├───────────────────────────────────────────────┤
+│ ▬▬▬[ Klip 1 ]▬▬▬|▬▬▬[ Klip 2 ]▬▬▬             │ ← Timeline Magnetik
+│  ▲   ▲   ▲   ▲                                │ ← Penanda Ketukan Kuning
+├───────────────────────────────────────────────┤
+│ [Normal] [Montage] [Hero] [Bullet] [Jump Cut] │ ← Kurva Kecepatan Velocity
+├───────────────────────────────────────────────┤
+│ (Curves) (Beat Sync) (AI Retouch) (Templates) │ ← Navigasi Panel Bawah
+└───────────────────────────────────────────────┘
+```
+<sub><b>Arsitektur Android</b>: Antarmuka native Jetpack Compose + jembatan UniFFI ke <code>libconcat_mobile.so</code> dengan rendering <code>SurfaceView</code> GPU Vulkan super mulus.</sub>
 
 </div>
 
@@ -33,32 +89,6 @@ CapCut sangat populer untuk membuat konten vertikal cepat, tetapi belakangan mak
 - 🚫 **Bebas Freemium, Watermark, & Langganan.** Seluruh fitur Pro terbuka sejak awal.
 - 🔒 **100% Offline & Lokal.** Tidak ada kewajiban upload cloud, tidak perlu login akun, privasi data aman.
 - ⚡ **Kinerja Native Super Cepat.** Scrubbing timeline 60 FPS mulus dan ekspor video 4K tanpa hambatan.
-
----
-
-## 📸 Bukti Hasil Render Riil & Tangkapan Layar
-
-Seluruh fitur telah diverifikasi melalui pengujian ekspor video nyata di lingkungan Linux GPU Vulkan:
-
-<table width="100%">
-  <tr>
-    <th width="50%" align="center">🎬 Hasil Ekspor Vertikal 1080x1920 (TikTok / Reels)</th>
-    <th width="50%" align="center">✨ Kartu Preview GPU Shader WGSL</th>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="../assets/capcut_showcase/capcut_vertical_preview.png" alt="Preview Frame 9:16 Vertikal" width="100%" />
-      <br/>
-      <sub><b>Komposit Frame 1080x1920 (Detik 0.5)</b>: Hero Velocity Curve + Face Retouch + Efek Jedag-Jedug Flash</sub>
-    </td>
-    <td align="center">
-      <img src="../assets/capcut_showcase/card_face_retouch.jpg" alt="Face Retouch Shader Card" width="48%" />
-      <img src="../assets/capcut_showcase/card_jedag_jedug.jpg" alt="Jedag-Jedug Shader Card" width="48%" />
-      <br/>
-      <sub><b>Kiri</b>: <code>concat.face-retouch</code> (Bilateral Skin Smoothing)<br/><b>Kanan</b>: <code>concat.jedag-jedug</code> (Bass Zoom & Exposure Flash)</sub>
-    </td>
-  </tr>
-</table>
 
 ---
 
@@ -109,13 +139,6 @@ Menggabungkan rasio aspek, kurva kecepatan, dan rangkaian shader GPU dalam sekal
 * **AI Podcast Shorts**: 9:16 + Normal + Face Retouch + Clean Tone.
 * **Bullet-Time 4K**: 16:9 + Kurva Bullet + Cinematic Chrome.
 * **Beauty Glow Daily Vlog**: 9:16 + Kurva Montage + Soft Skin Glow.
-
----
-
-## 📱 Dukungan Lintas Platform (Desktop & Mobile)
-
-* **Desktop (Windows, macOS, Linux)**: Antarmuka berbasis Slint UI, multi-track magnetic timeline, editor kurva keyframe, serta server MCP terintegrasi (`concat --mcp`) untuk automasi editing via AI agen.
-* **Mobile (Android Native)**: Antarmuka modern Kotlin + Jetpack Compose yang terhubung langsung ke mesin Rust via UniFFI bridge, dilengkapi monitor preview native `SurfaceView` GPU Vulkan.
 
 ---
 

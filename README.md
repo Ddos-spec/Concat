@@ -7,15 +7,27 @@
 
 <div align="center">
 
-<img src="https://cdn.jsdelivr.net/gh/jub0t/Concat@main/assets/editor.png" alt="Concat Editor Workspace" width="100%" />
-
 <p align="center">
   <a href="https://github.com/Ddos-spec/Concat"><img src="https://img.shields.io/badge/Repo-Ddos--spec%2FConcat-0568FD?style=flat&logo=github&labelColor=212123" alt="GitHub Repo" /></a>
+  <a href="https://github.com/Ddos-spec/Concat/releases/tag/v0.2.8-unlocked"><img src="https://img.shields.io/badge/Release-v0.2.8--unlocked-brightgreen?style=flat&logo=github&labelColor=212123" alt="Latest Release" /></a>
   <a href="https://github.com/Ddos-spec/Concat/tree/feat/windows-desktop"><img src="https://img.shields.io/badge/Branch-feat%2Fwindows--desktop-2ea44f?style=flat&logo=git&labelColor=212123" alt="Branch Desktop" /></a>
   <a href="https://github.com/Ddos-spec/Concat/tree/feat/android-mobile"><img src="https://img.shields.io/badge/Branch-feat%2Fandroid--mobile-00E5FF?style=flat&logo=android&labelColor=212123" alt="Branch Mobile" /></a>
   <img src="https://img.shields.io/badge/Paywall-0%25%20Bypassed-brightgreen?style=flat&labelColor=212123" alt="Zero Paywall" />
-  <img src="https://img.shields.io/badge/Engine-Rust%202024%20%2B%20WGSL%20GPU-orange?style=flat&logo=rust&labelColor=212123" alt="Rust 2024 Engine" />
   <img src="https://img.shields.io/badge/License-AGPL%20v3-0568FD?style=flat&logo=gnu&labelColor=212123" alt="License: AGPL-3.0-or-later" />
+</p>
+
+### ⚡ Direct Download (Latest Unlocked Builds)
+<p align="center">
+  <a href="https://github.com/Ddos-spec/Concat/releases/download/v0.2.8-unlocked/Concat-0.2.8-windows-x86_64-setup.exe">
+    <img src="https://img.shields.io/badge/Download%20for%20Windows-Installer%20(.exe)%20--%2082.6%20MB-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download Windows Installer" height="42" />
+  </a>
+  &nbsp;&nbsp;
+  <a href="https://github.com/Ddos-spec/Concat/releases/download/v0.2.8-unlocked/Concat-0.2.8-android-arm64.apk">
+    <img src="https://img.shields.io/badge/Download%20for%20Android-Package%20(.apk)%20--%2074.5%20MB-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Download Android APK" height="42" />
+  </a>
+</p>
+<p align="center">
+  <sub>All binaries are 100% self-contained, offline-first, and pre-packaged with all Pro features unlocked. No accounts, no subscriptions, zero watermarks.</sub>
 </p>
 
 **English** · [Bahasa Indonesia](docs/README.id.md)
@@ -24,41 +36,59 @@
 
 ---
 
+## 📸 Desktop Application Interface
+
+Here is what Concat's full editing workspace looks like in action:
+
+<p align="center">
+  <img src="assets/app_showcase/desktop_editor_dark.png" alt="Concat Desktop Editor Workspace (Dark Theme)" width="100%" />
+</p>
+
+* **Top Toolbar**: Media bin, project management, aspect ratio switcher (`9:16`, `16:9`, `1:1`, `4:5`), 4K export presets.
+* **Left Sidebar**: Asset inspector, effect catalogue (`concat-effects`), text-to-speech voice selector (`Kokoro`), and auto-captions (`Whisper`).
+* **Center Monitor**: Real-time GPU viewport with WgpuCompositor hardware acceleration (zero preview drop-frames).
+* **Bottom Timeline**: Magnetic multi-track timeline, keyframe curve editor, yellow beat-sync markers, and speed ramp splines.
+
+---
+
+## 📱 Mobile Android Interface
+
+<div align="center">
+
+```
+┌───────────────────────────────────────────────┐
+│ [4K 60FPS • FREE]   (9:16) (16:9) (1:1) (VULKAN)│ ← Top Quick Ratio Bar
+├───────────────────────────────────────────────┤
+│                                               │
+│             CENTER PREVIEW CANVAS             │
+│            (Real-time GPU Viewport)           │
+│                                               │
+├───────────────────────────────────────────────┤
+│ [+ Media]  [ ▶ Play ]   0.50s / 2.00s         │ ← Transport Controls
+├───────────────────────────────────────────────┤
+│ ▬▬▬[ Clip 1 ]▬▬▬|▬▬▬[ Clip 2 ]▬▬▬             │ ← Magnetic Multi-Track
+│  ▲   ▲   ▲   ▲                                │ ← Yellow Beat-Sync Markers
+├───────────────────────────────────────────────┤
+│ [Normal] [Montage] [Hero] [Bullet] [Jump Cut] │ ← Velocity Curves Dock
+├───────────────────────────────────────────────┤
+│ (Curves) (Beat Sync) (AI Retouch) (Templates) │ ← Bottom Navigation Dock
+└───────────────────────────────────────────────┘
+```
+<sub><b>Android Architecture</b>: Native Jetpack Compose + UniFFI bridge to <code>libconcat_mobile.so</code> with zero-jank Vulkan SurfaceView playback.</sub>
+
+</div>
+
+---
+
 ## ⚡ The Story & Mission
 
-CapCut is undeniably fast and popular for creating short-form content, but it has increasingly locked basic, essential editing features behind aggressive subscription paywalls: **Freemium barriers, export watermarks, paid velocity curves, cloud-only templates, and AI retouch tokens**.
+CapCut is undeniably fast for creating viral short-form content, but it has increasingly locked essential editing features behind aggressive subscription paywalls: **Freemium barriers, export watermarks, paid velocity curves, cloud-only templates, and AI retouch tokens**.
 
 **Concat CapCut Pro Unlocked Edition** transplants and reverse-engineers CapCut's iconic creative workflow directly into a high-performance native **Rust 2024 engine** with a WebGPU/Vulkan hardware-accelerated compositor. 
 
 - 🚫 **Zero Freemium. Zero Watermarks. Zero Paywalls.** All Pro features are unlocked out-of-the-box.
 - 🔒 **100% On-Device & Offline.** Zero mandatory cloud uploads, zero telemetry, zero accounts.
 - ⚡ **Native C++/Rust Speed.** Instant 60 FPS timeline scrubbing and fast 4K export.
-
----
-
-## 📸 Real Render Output & Live Visual Proof
-
-Everything is tested and proven with end-to-end rendering on **Vulkan Lavapipe GPU** and hardware pipelines:
-
-<table width="100%">
-  <tr>
-    <th width="50%" align="center">🎬 1080x1920 Vertical TikTok / Reels Render</th>
-    <th width="50%" align="center">✨ WGSL GPU Shader Preview Cards</th>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="assets/capcut_showcase/capcut_vertical_preview.png" alt="9:16 Vertical TikTok Preview Frame" width="100%" />
-      <br/>
-      <sub><b>Composited 1080x1920 Frame (Detik 0.5)</b>: Hero Velocity Curve + Bilateral Skin Smoothing + Jedag-Jedug Flash</sub>
-    </td>
-    <td align="center">
-      <img src="assets/capcut_showcase/card_face_retouch.jpg" alt="Face Retouch Shader Card" width="48%" />
-      <img src="assets/capcut_showcase/card_jedag_jedug.jpg" alt="Jedag-Jedug Shader Card" width="48%" />
-      <br/>
-      <sub><b>Left</b>: <code>concat.face-retouch</code> (Edge-preserving Bilateral Filter)<br/><b>Right</b>: <code>concat.jedag-jedug</code> (Rhythmic Bass Zoom & Exposure Flash)</sub>
-    </td>
-  </tr>
-</table>
 
 ---
 
@@ -115,20 +145,6 @@ Instant preset bundles applying aspect ratio, velocity curves, and GPU shader ch
 
 ---
 
-## 📱 Dual-Platform Support (Desktop & Android Mobile)
-
-### Desktop (Windows / macOS / Linux)
-* Powered by Slint UI and native GPU backends (DirectX 12, Vulkan, Metal).
-* Full multi-track magnetic timeline, keyframe curve editor, and color grading wheels.
-* Built-in MCP Server (`concat --mcp`) for autonomous AI video editing via Claude / Antigravity.
-
-### Mobile (Android Native Jetpack Compose)
-* **Architecture**: Kotlin + Jetpack Compose UI communicating via UniFFI bridge to `libconcat_mobile.so`.
-* **Zero-Jank Preview**: Native `SurfaceView` rendered directly by Vulkan/OpenGL ES.
-* **Touch-Friendly Controls**: Aspect ratio switcher (`9:16`, `16:9`, `1:1`, `4:5`), velocity curve dock, and retouch sliders.
-
----
-
 ## 🛠️ Verification & Test Suite Summary
 
 Every single crate in the repository is validated against extensive automated test suites on production Linux environments:
@@ -146,39 +162,6 @@ cargo test -p concat-effects -p concat-vision -p concat-speech -p concat-project
 | **`concat-project`** | **191 Passed** | Multi-track timeline, continuous speed trimming, ripple edits, undo/redo history |
 | **`concat-mobile`** | **2 Passed** | UniFFI export bridge, native rate fractions, Android JNI bindings |
 | **Total** | **335 Passed, 0 Failed** | **100% Clean Green Build** |
-
----
-
-## 📦 How to Build from Source
-
-### Prerequisites
-* Rust 1.85+ / 2024 Edition (`rustup default stable`)
-* FFmpeg 7+ development libraries (`libavformat`, `libavcodec`, `libswscale`, `libavfilter`)
-* CMake & C++ compiler (Clang / GCC / MSVC)
-* Vulkan SDK or OpenGL drivers
-
-### 1. Build Desktop Engine & CLI
-```bash
-git clone https://github.com/Ddos-spec/Concat.git
-cd Concat/src
-
-# Build CLI & Test Runner
-cargo build --release -p concat-cli
-
-# Run End-to-End Vertical Slice Render
-./target/release/concat-cli render input.mp4 output.mp4 --frames 90
-```
-
-### 2. Build Android Mobile APK
-```bash
-cd Concat/android-native
-
-# Build native Rust .so and UniFFI Kotlin bindings
-./build-rust.sh release
-
-# Assemble Universal Debug APK
-./gradlew assembleDebug
-```
 
 ---
 
