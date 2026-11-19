@@ -8232,6 +8232,316 @@ impl Studio {
         });
     }
 
+    /// Splits clip `id` wherever its picture changes shot. The cuts are
+    /// found from the colours of the frames the clip shows, on this machine,
+    /// then made from the last to the first so the head keeps its id.
+    pub fn split_by_scenes(&mut self, id: &str) {
+        let Some(clip) = self.clip(id).cloned() else {
+            return;
+        };
+        if self.locked(&clip.track_id) || clip.kind != model::ClipKind::Video {
+            return;
+        }
+        let Some(path) = self
+            .project()
+            .media_by_id(&clip.media_id)
+            .map(|media| media.path.clone())
+        else {
+            return;
+        };
+        let speed = clip.speed.max(0.0625);
+        let from = clip.source_start;
+        let to = clip.source_start + clip.duration * speed;
+        self.notify(&t("studio.scenesBusy"), false);
+        let id = id.to_owned();
+        spawn_in_project(
+            move || {
+                concat_host::analyse::scenes_between(
+                    &path,
+                    from,
+                    to,
+                    concat_vision::scene::Settings::default(),
+                )
+            },
+            move |studio, _, _, result| match result {
+                Err(error) => studio.notify(&error, true),
+                Ok(cuts) => {
+                    let fps = f64::from(studio.frame_rate().max(1.0));
+                    let edge = f64::from(MIN_DURATION);
+                    let mut times: Vec<f64> = cuts
+                        .into_iter()
+                        .map(|source| clip.start + (source - from) / speed)
+                        .map(|time| (time * fps).round() / fps)
+                        .filter(|time| {
+                            *time > clip.start + edge && *time < clip.start + clip.duration - edge
+                        })
+                        .collect();
+                    times.dedup();
+                    if times.is_empty() {
+                        studio.notify(&t("studio.scenesNone"), false);
+                        return;
+                    }
+                    studio.flush_commit();
+                    for time in times.iter().rev() {
+                        studio.apply(Command::SplitClips {
+                            clip_ids: vec![id.clone()],
+                            time: *time,
+                        });
+                    }
+                    studio.notify(&tf("studio.scenesSplit", &[&(times.len() + 1)]), false);
+                }
+            },
+        );
+    }
+
+    /// Turns the title `id` into a karaoke caption: it is cut into one
+    /// piece per word, timed by the words' length across the caption's span,
+    /// and each piece lights the words said so far.
+    pub fn karaoke_clip(&mut self, id: &str) {
+        let Some(clip) = self.clip(id).cloned() else {
+            return;
+        };
+        if self.locked(&clip.track_id) || clip.kind != model::ClipKind::Text {
+            return;
+        }
+        let Some(content) = clip.text.as_ref().map(|text| text.content.clone()) else {
+            return;
+        };
+        let words = concat_text::karaoke::spread(&content, 0.0, clip.duration);
+        let fps = f64::from(self.frame_rate().max(1.0));
+        let edge = f64::from(MIN_DURATION);
+        let mut cuts: Vec<f64> = words
+            .iter()
+            .skip(1)
+            .map(|word| ((clip.start + word.start) * fps).round() / fps)
+            .collect();
+        cuts.dedup();
+        let inside = cuts
+            .iter()
+            .all(|time| *time > clip.start + edge && *time < clip.start + clip.duration - edge);
+        if words.len() < 2 || cuts.len() + 1 != words.len() || !inside {
+            self.notify(&t("studio.karaokeShort"), false);
+            return;
+        }
+        self.flush_commit();
+        for time in cuts.iter().rev() {
+            self.apply(Command::SplitClips {
+                clip_ids: vec![id.to_owned()],
+                time: *time,
+            });
+        }
+        let end = clip.start + clip.duration - edge;
+        let mut pieces: Vec<(f64, String)> = self
+            .project()
+            .active()
+            .clips
+            .iter()
+            .filter(|piece| {
+                piece.track_id == clip.track_id
+                    && piece.kind == model::ClipKind::Text
+                    && piece.start >= clip.start - edge
+                    && piece.start < end
+            })
+            .map(|piece| (piece.start, piece.id.clone()))
+            .collect();
+        pieces.sort_by(|a, b| a.0.total_cmp(&b.0));
+        for ((_, piece), word) in pieces.iter().zip(&words) {
+            self.apply(Command::StyleTextRange {
+                clip_id: piece.clone(),
+                start: 0,
+                end: word.last,
+                patch: model::RunStyle {
+                    color: Some("#ffd60a".to_owned()),
+                    ..model::RunStyle::default()
+                },
+            });
+        }
+    }
+
+    /// Grades clip `id` to look like the clip just before it on its lane:
+    /// both are measured in Lab on this machine, and the difference is put on
+    /// the clip's own colour panel (temperature, brightness, contrast,
+    /// saturation) where it can be seen and changed.
+    pub fn match_colour(&mut self, id: &str) {
+        let Some(clip) = self.clip(id).cloned() else {
+            return;
+        };
+        if self.locked(&clip.track_id) || clip.kind != model::ClipKind::Video {
+            return;
+        }
+        let before = self
+            .project()
+            .active()
+            .clips
+            .iter()
+            .filter(|other| {
+                other.id != clip.id
+                    && other.kind == model::ClipKind::Video
+                    && other.track_id == clip.track_id
+                    && other.start < clip.start
+            })
+            .max_by(|a, b| a.start.total_cmp(&b.start))
+            .cloned();
+        let Some(reference) = before else {
+            self.notify(&t("studio.matchNone"), true);
+            return;
+        };
+        let middle = |clip: &model::Clip| {
+            clip.source_start + clip.duration * clip.speed.max(0.0625) * 0.5
+        };
+        let (Some(own), Some(other)) = (
+            self.project().media_by_id(&clip.media_id).map(|m| m.path.clone()),
+            self.project()
+                .media_by_id(&reference.media_id)
+                .map(|m| m.path.clone()),
+        ) else {
+            return;
+        };
+        let (own_at, other_at) = (middle(&clip), middle(&reference));
+        let id = id.to_owned();
+        spawn_in_project(
+            move || {
+                let own = concat_host::analyse::colour_numbers(&own, own_at)?;
+                let other = concat_host::analyse::colour_numbers(&other, other_at)?;
+                Ok::<_, String>((own, other))
+            },
+            move |studio, _, _, result| match result {
+                Err(error) => studio.notify(&error, true),
+                Ok(((mean, spread), (ref_mean, ref_spread))) => {
+                    let Some(current) = studio.clip(&id).cloned() else {
+                        return;
+                    };
+                    let ratio = |a: f32, b: f32| if b > 1e-3 { a / b } else { 1.0 };
+                    let chroma = |s: [f32; 3]| (s[1] * s[1] + s[2] * s[2]).sqrt();
+                    let brightness = f64::from(((ref_mean[0] - mean[0]) * 0.8).clamp(-60.0, 60.0));
+                    let contrast =
+                        f64::from(((ratio(ref_spread[0], spread[0]) - 1.0) * 100.0).clamp(-60.0, 60.0));
+                    let saturation = f64::from(
+                        ((ratio(chroma(ref_spread), chroma(spread)) - 1.0) * 100.0)
+                            .clamp(-80.0, 80.0),
+                    );
+                    // A warmer reference is a lower temperature in the panel.
+                    let kelvin = (6500.0 - f64::from(ref_mean[2] - mean[2]) * 80.0)
+                        .clamp(2000.0, 11000.0);
+                    let kelvin = (kelvin / 50.0).round() * 50.0;
+                    let mut chain = current.video_effects.clone();
+                    let entry = match chain.iter().position(|link| link.id == ADJUST_ID) {
+                        Some(entry) => entry,
+                        None => {
+                            chain.insert(0, AppliedFilter::new(ADJUST_ID));
+                            0
+                        }
+                    };
+                    for (key, value) in [
+                        ("temperature", kelvin),
+                        ("brightness", brightness.round()),
+                        ("contrast", contrast.round()),
+                        ("saturation", saturation.round()),
+                    ] {
+                        chain[entry].params.insert(key.to_owned(), value);
+                    }
+                    studio.flush_commit();
+                    studio.apply(Command::UpdateClip {
+                        clip_id: id,
+                        patch: ClipPatch {
+                            video_effects: Some(chain),
+                            ..ClipPatch::default()
+                        },
+                    });
+                    studio.notify(&t("studio.matchDone"), false);
+                }
+            },
+        );
+    }
+
+    /// Makes clip `id` ride a point on the picture beneath it: the point is
+    /// where the clip sits at its start, followed through the video under it
+    /// on this machine, and the clip's position is keyed to the path.
+    pub fn follow_clip(&mut self, id: &str) {
+        let Some(clip) = self.clip(id).cloned() else {
+            return;
+        };
+        if self.locked(&clip.track_id) || clip.kind == model::ClipKind::Audio {
+            return;
+        }
+        let under = self
+            .project()
+            .active()
+            .clips
+            .iter()
+            .find(|other| {
+                other.id != clip.id
+                    && other.kind == model::ClipKind::Video
+                    && other.start <= clip.start + 1e-6
+                    && other.start + other.duration > clip.start
+            })
+            .cloned();
+        let Some(under) = under else {
+            self.notify(&t("studio.trackNone"), true);
+            return;
+        };
+        let Some(path) = self
+            .project()
+            .media_by_id(&under.media_id)
+            .map(|media| media.path.clone())
+        else {
+            return;
+        };
+        let speed = under.speed.max(0.0625);
+        let finish = (clip.start + clip.duration).min(under.start + under.duration);
+        let from = under.source_start + (clip.start - under.start) * speed;
+        let to = under.source_start + (finish - under.start) * speed;
+        let start = (
+            (0.5 + clip.offset_x).clamp(0.0, 1.0) as f32,
+            (0.5 + clip.offset_y).clamp(0.0, 1.0) as f32,
+        );
+        let id = id.to_owned();
+        spawn_in_project(
+            move || concat_host::analyse::follow(&path, from, to, start),
+            move |studio, _, _, result| match result {
+                Err(error) => studio.notify(&error, true),
+                Ok(fixes) if fixes.len() < 2 => studio.notify(&t("studio.trackLost"), true),
+                Ok(fixes) => {
+                    studio.flush_commit();
+                    for property in [model::KeyProperty::OffsetX, model::KeyProperty::OffsetY] {
+                        studio.apply(Command::ClearClipKeys {
+                            clip_id: id.clone(),
+                            property,
+                        });
+                    }
+                    let mut last = f64::NEG_INFINITY;
+                    for fix in &fixes {
+                        if fix.seconds - last < 0.1 && fix.seconds != fixes[0].seconds {
+                            continue;
+                        }
+                        last = fix.seconds;
+                        let time = under.start + (fix.seconds - under.source_start) / speed;
+                        let at = ((time - clip.start) / clip.duration).clamp(0.0, 1.0);
+                        for (property, value) in [
+                            (
+                                model::KeyProperty::OffsetX,
+                                clip.offset_x + f64::from(fix.x - start.0),
+                            ),
+                            (
+                                model::KeyProperty::OffsetY,
+                                clip.offset_y + f64::from(fix.y - start.1),
+                            ),
+                        ] {
+                            studio.apply(Command::SetClipKey {
+                                clip_id: id.clone(),
+                                property,
+                                at,
+                                value,
+                                ease: model::KeyEase::default(),
+                            });
+                        }
+                    }
+                    studio.notify(&t("studio.trackDone"), false);
+                }
+            },
+        );
+    }
+
     /// Delete: the selection goes, and the hole stays unless the timeline
     /// is magnetic.
     pub fn delete_selected(&mut self) {
@@ -11943,6 +12253,39 @@ impl Studio {
                     && !locked
                     && (clip.kind == model::ClipKind::Video || clip.kind == model::ClipKind::Image),
             ),
+            // Cuts at every change of shot, found from the colours on this
+            // machine: no model, no network.
+            action(
+                "scenes",
+                t("studio.splitScenes"),
+                Glyph::Razor,
+                "",
+                !locked && clip.kind == model::ClipKind::Video,
+            ),
+            // A caption lit word by word as it is said.
+            action(
+                "karaoke",
+                t("studio.karaoke"),
+                Glyph::Razor,
+                "",
+                !locked && clip.kind == model::ClipKind::Text,
+            ),
+            // Grades the clip to look like the one before it.
+            action(
+                "colour-match",
+                t("studio.matchColour"),
+                Glyph::Frame,
+                "",
+                !locked && clip.kind == model::ClipKind::Video,
+            ),
+            // Keys the clip's position to a point on the picture beneath it.
+            action(
+                "track",
+                t("studio.trackFollow"),
+                Glyph::Frame,
+                "",
+                !locked && clip.kind != model::ClipKind::Audio,
+            ),
             // The picture restored and enlarged by the model: the row opens
             // the clip's Enhance in the inspector, whose switch runs it.
             action(
@@ -12761,6 +13104,10 @@ impl Studio {
                 self.split_at(at, true);
             }
             "freeze" => self.freeze_at_playhead(),
+            "scenes" => self.split_by_scenes(id),
+            "karaoke" => self.karaoke_clip(id),
+            "colour-match" => self.match_colour(id),
+            "track" => self.follow_clip(id),
             // The clip right-clicked, or the selection when it is one of
             // it, as Delete takes it.
             "delete-left" | "delete-right" => {

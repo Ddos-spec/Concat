@@ -42,6 +42,45 @@ enum Command {
         path: PathBuf,
     },
 
+    /// Print the times a clip changes shot, one per line, in seconds.
+    Scenes {
+        /// The clip to read.
+        path: PathBuf,
+        /// How far the colours must move to count as a cut, 0.05 to 0.95.
+        #[arg(long, default_value_t = 0.4)]
+        threshold: f32,
+        /// The fewest frames a shot may last.
+        #[arg(long, default_value_t = 5)]
+        min_shot: usize,
+    },
+
+    /// Follow a point on a moving subject and print where it goes.
+    Track {
+        /// The clip to read.
+        path: PathBuf,
+        /// Where to start, in seconds.
+        #[arg(long, default_value_t = 0.0)]
+        from: f64,
+        /// Where to stop, in seconds.
+        #[arg(long)]
+        to: f64,
+        /// The point's place across the picture, 0 to 1.
+        #[arg(long, default_value_t = 0.5)]
+        x: f32,
+        /// The point's place down the picture, 0 to 1.
+        #[arg(long, default_value_t = 0.5)]
+        y: f32,
+    },
+
+    /// Print how a clip's picture is graded at a moment: Lab mean and spread.
+    Colour {
+        /// The clip to read.
+        path: PathBuf,
+        /// The moment, in seconds.
+        #[arg(long, default_value_t = 0.0)]
+        at: f64,
+    },
+
     /// Decode, composite and re-encode a clip - the end-to-end slice.
     Render {
         /// Source video.
@@ -88,6 +127,17 @@ enum Command {
         /// for anywhere.
         #[arg(long = "root", value_name = "DIR")]
         roots: Vec<PathBuf>,
+        /// Also open a TLS door a phone on this network can use, and show
+        /// the QR code that pairs it. Needs a build with the `pair` feature.
+        #[arg(long)]
+        pair: bool,
+        /// The port of the pairing door.
+        #[arg(long, default_value_t = 7421)]
+        pair_port: u16,
+        /// Where projects pushed from a phone land. `~/Concat/Inbox` when
+        /// not given.
+        #[arg(long)]
+        inbox: Option<PathBuf>,
     },
 
     /// Draw one effect's card - a still through the package's own shader
@@ -128,6 +178,40 @@ fn main() -> Result<(), Box<dyn Error>> {
     concat_host::crash::catch();
     match Cli::parse().command {
         Command::Probe { path } => probe(&path),
+        Command::Scenes {
+            path,
+            threshold,
+            min_shot,
+        } => {
+            let path = path.to_string_lossy();
+            for second in concat_host::analyse::scene_cuts(&path, threshold, min_shot)? {
+                println!("{second:.3}");
+            }
+            Ok(())
+        }
+        Command::Track {
+            path,
+            from,
+            to,
+            x,
+            y,
+        } => {
+            let path = path.to_string_lossy();
+            for fix in concat_host::analyse::follow(&path, from, to, (x, y))? {
+                println!("{:.3} {:.4} {:.4}", fix.seconds, fix.x, fix.y);
+            }
+            Ok(())
+        }
+        Command::Colour { path, at } => {
+            let path = path.to_string_lossy();
+            let (mean, spread) = concat_host::analyse::colour_numbers(&path, at)?;
+            println!(
+                "mean   L {:.2}  a {:.2}  b {:.2}
+spread L {:.2}  a {:.2}  b {:.2}",
+                mean[0], mean[1], mean[2], spread[0], spread[1], spread[2]
+            );
+            Ok(())
+        }
         Command::Render {
             input,
             output,
@@ -141,7 +225,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             grpc,
             token,
             roots,
-        } => serve(json, socket, grpc, token, roots),
+            pair,
+            pair_port,
+            inbox,
+        } => serve(json, socket, grpc, token, roots, pair.then_some((pair_port, inbox))),
         Command::Preview {
             input,
             output,
@@ -202,6 +289,7 @@ fn serve(
     grpc: Option<SocketAddr>,
     token: Option<String>,
     roots: Vec<PathBuf>,
+    pair: Option<(u16, Option<PathBuf>)>,
 ) -> Result<(), Box<dyn Error>> {
     let nothing_asked = json.is_none() && socket.is_none() && grpc.is_none();
     let config = concat_server::Config {
@@ -250,9 +338,64 @@ fn serve(
                 .join(", ")
         }
     );
+    #[cfg(feature = "pair")]
+    let _pairing = match pair {
+        Some((port, inbox)) => Some(open_pairing(&server, port, inbox)?),
+        None => None,
+    };
+    #[cfg(not(feature = "pair"))]
+    if pair.is_some() {
+        return Err("this build has no pairing: build concat-cli with --features pair".into());
+    }
     loop {
         std::thread::park();
     }
+}
+
+/// The pairing door and its QR code: what a phone scans to trust this
+/// machine's certificate and to present its token.
+#[cfg(feature = "pair")]
+fn open_pairing(
+    server: &concat_server::Server,
+    port: u16,
+    inbox: Option<PathBuf>,
+) -> Result<concat_server::pair::Pairing, Box<dyn Error>> {
+    use concat_server::pair;
+    let forward_to = server
+        .json_addr()
+        .map(concat_server::loopback)
+        .ok_or("pairing forwards to the JSON-RPC door; serve one with --json")?;
+    let home = concat_server::home_root()
+        .into_iter()
+        .next()
+        .ok_or("no home folder to keep the pairing certificate in")?;
+    let identity = pair::Identity::load_or_create(&home.join(".concat"))?;
+    let inbox = inbox.unwrap_or_else(|| home.join("Concat").join("Inbox"));
+    let door = pair::Pairing::start(
+        &identity,
+        pair::Config {
+            listen: SocketAddr::from(([0, 0, 0, 0], port)),
+            forward_to,
+            token: server.token().to_owned(),
+            inbox: inbox.clone(),
+        },
+    )?;
+    let host = pair::lan_address().ok_or("no network address to pair over")?;
+    let url = pair::pairing_url(host, door.addr().port(), server.token(), identity.fingerprint());
+    let code = qrcode::QrCode::new(url.as_bytes())?;
+    let picture = code
+        .render::<qrcode::render::unicode::Dense1x2>()
+        .dark_color(qrcode::render::unicode::Dense1x2::Light)
+        .light_color(qrcode::render::unicode::Dense1x2::Dark)
+        .quiet_zone(true)
+        .build();
+    println!("
+{picture}
+");
+    println!("Scan with Concat on the phone (same Wi-Fi): Saya > Editor desktop > Pindai QR");
+    println!("Pairing URL: {url}");
+    println!("Projects from the phone land in {}", inbox.display());
+    Ok(door)
 }
 
 /// Where `serve` listens when not told: loopback, on a port nothing else

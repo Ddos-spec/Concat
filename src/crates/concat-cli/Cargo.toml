@@ -12,6 +12,7 @@ name = "concat-cli"
 path = "src/main.rs"
 
 [dependencies]
+qrcode = { version = "0.14", default-features = false, optional = true }
 concat-core.workspace = true
 concat-media.workspace = true
 concat-render.workspace = true
@@ -29,6 +30,9 @@ clap.workspace = true
 [features]
 # `serve --grpc`. Off by default; see concat-server.
 grpc = ["concat-server/grpc"]
+# `serve --pair`: a QR code a phone scans to push projects over the local
+# network. Off by default; see concat-server.
+pair = ["concat-server/pair", "dep:qrcode"]
 
 [lints]
 workspace = true

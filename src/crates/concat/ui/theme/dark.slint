@@ -79,12 +79,12 @@ export global Dark {
     // separating a pane from the ground; without one the value step has to do
     // all of it, and a darker ladder leaves the panes reading as holes in the
     // window rather than as surfaces on it.
-    out property <color> panel: #212123;
-    out property <color> raised: #2b2b2e;
-    out property <color> well: #19191b;
-    out property <color> field: #323235;
-    out property <color> field-hover: #3b3b3e;
-    out property <color> field-active: #46464a;
+    out property <color> panel: #262626;
+    out property <color> raised: #303030;
+    out property <color> well: #1c1c1c;
+    out property <color> field: #3b3b3b;
+    out property <color> field-hover: #454545;
+    out property <color> field-active: #505050;
 
     // the launch screen's own ladder — a deeper cut of the one above
     //
@@ -136,6 +136,7 @@ export global Dark {
     // The same order as `light.slint` and as `accent-names` in theme.slint,
     // which is where each one's name lives.
     out property <[Accent]> accents: [
+        { accent: #00c1cd, hover: #2fd6e0, soft: #00c1cd33, on: #00262a },   // cyan
         { accent: #cbf53f, hover: #d9ff63, soft: #cbf53f33, on: #15220a },   // lime
         { accent: #5fb8ff, hover: #82c9ff, soft: #5fb8ff33, on: #061c33 },   // sky
         { accent: #b394ff, hover: #c6b0ff, soft: #b394ff33, on: #1d0f3d },   // violet
@@ -219,8 +220,8 @@ export global Dark {
     // still reads as a well cut into the pane, and a clip's own dark ground
     // now sits *on* something rather than floating in a hole. Both stay well
     // under `panel`, or the empty stretches would read as content.
-    out property <color> lane: #1a1a1c;
-    out property <color> lane-alt: #1e1e20;
+    out property <color> lane: #1c1c1c;
+    out property <color> lane-alt: #202020;
     // The ruler is its own surface, not the first row of the stack: a step
     // under the darker lane, so the strip carrying the timestamps reads as
     // the floor of the pane and the banding starts below it. It followed
@@ -308,6 +309,6 @@ export global Dark {
 
     // window ground the panes float on — a shade under the darkest panel so
     // the gutters read as gaps and not as seams
-    out property <color> page: #151517;
+    out property <color> page: #141414;
     out property <color> page-fg-muted: #a1a1a6;
 }

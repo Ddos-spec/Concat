@@ -1,0 +1,154 @@
+name: Verify desktop
+
+# A quick Linux x86_64 build of the window and the CLI, run on a branch to
+# see a change working before it is shipped: the quick profile (the window
+# unoptimised), the scene-detect, colour and track commands on a clip made
+# on the spot, and the window itself started under Xvfb and photographed.
+# It publishes nothing. The shipping build is build-app.yml.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [verify/capcut-parity]
+
+env:
+  CARGO_TERM_COLOR: always
+  ORT_VERSION: 1.28.0
+  GGML_NATIVE: "OFF"
+  GGML_BACKEND_DL: "ON"
+  GGML_CPU_ALL_VARIANTS: "ON"
+
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The pinned toolchain
+        id: toolchain
+        shell: bash
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' src/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (v1), 2026-10-09
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+
+      - name: System libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfontconfig1-dev libfreetype6-dev libxkbcommon-dev libgl1-mesa-dev \
+            libgtk-3-dev libasound2-dev libclang-dev cmake libxkbcommon-x11-0 \
+            xvfb xauth libgl1-mesa-dri mesa-vulkan-drivers imagemagick xdotool
+
+      - name: FFmpeg development libraries
+        run: |
+          set -euo pipefail
+          scripts/ci/fetch.sh "ffmpeg-linux64" ffmpeg.tar.xz
+          mkdir -p ffmpeg-dev
+          tar -xf ffmpeg.tar.xz -C ffmpeg-dev --strip-components=1
+          {
+            echo "FFMPEG_DIR=$PWD/ffmpeg-dev"
+            echo "LD_LIBRARY_PATH=$PWD/ffmpeg-dev/lib"
+            echo "RUSTFLAGS=-C link-arg=-Wl,-rpath,$PWD/ffmpeg-dev/lib -C link-arg=-Wl,--disable-new-dtags"
+          } >> "$GITHUB_ENV"
+
+      # microsoft/onnxruntime left GitHub, so the release archive scripts/ci
+      # pins is gone. The shared library is the same one PyPI's manylinux
+      # wheel carries; it is unpacked here and linked the way the pinned
+      # archive was.
+      - name: ONNX Runtime (from the PyPI wheel)
+        run: |
+          set -euo pipefail
+          pip download "onnxruntime==$ORT_VERSION" --no-deps --only-binary=:all: \
+            --platform manylinux_2_28_x86_64 --python-version 3.12 -d ort-wheel
+          mkdir -p ort-lib ort-unpacked
+          unzip -q ort-wheel/*.whl -d ort-unpacked
+          lib=$(find ort-unpacked -name "libonnxruntime.so.$ORT_VERSION" | head -1)
+          test -n "$lib"
+          cp "$lib" ort-lib/
+          ln -sf "libonnxruntime.so.$ORT_VERSION" ort-lib/libonnxruntime.so
+          ls -la ort-lib
+          {
+            echo "ORT_LIB_LOCATION=$PWD/ort-lib"
+            echo "ORT_PREFER_DYNAMIC_LINK=1"
+            echo "LD_LIBRARY_PATH=$PWD/ffmpeg-dev/lib:$PWD/ort-lib"
+          } >> "$GITHUB_ENV"
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src
+          key: verify-quick
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST GGML ORT
+
+      - name: Build
+        shell: bash
+        working-directory: src
+        run: |
+          set -o pipefail
+          cargo build --profile quick -p concat -p concat-cli 2>&1 | tee build.log
+
+      - name: Build log to the summary (failure only)
+        if: failure()
+        shell: bash
+        run: |
+          if [ -f src/build.log ]; then
+            { echo '### Build failed'; echo '```'; grep -E '^(error|warning: unused)' -A12 src/build.log | head -120; echo '```'; tail -30 src/build.log; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Tests of the new engine pieces
+        shell: bash
+        working-directory: src
+        run: cargo test --profile quick -p concat-vision -p concat-text --lib 2>&1 | tail -40
+
+      - name: Scene, colour and track on a clip made here
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          ffmpeg() { "$PWD/ffmpeg-dev/bin/ffmpeg" "$@"; }
+          ffmpeg -v error -y \
+            -f lavfi -i "color=c=red:s=320x180:r=30:d=2" \
+            -f lavfi -i "color=c=green:s=320x180:r=30:d=2" \
+            -f lavfi -i "color=c=blue:s=320x180:r=30:d=2" \
+            -filter_complex "[0][1][2]concat=n=3:v=1:a=0" out/shots.mp4
+          ffmpeg -v error -y -f lavfi -i "testsrc2=s=320x180:r=30:d=3" \
+            -vf "scale=640:360,crop=320:180:'t*60':90" out/moving.mp4
+          cli=src/target/quick/concat-cli
+          {
+            echo "### New commands"
+            echo '```'
+            echo "scenes (expect 2.000 and 4.000):"; $cli scenes out/shots.mp4
+            echo "colour at 1s:"; $cli colour out/shots.mp4 --at 1
+            echo "colour at 3s:"; $cli colour out/shots.mp4 --at 3
+            echo "track from the upper right:"; $cli track out/moving.mp4 --to 2 --x 0.9 --y 0.1 | head -6
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          test "$($cli scenes out/shots.mp4 | tr '\n' ' ')" = "2.000 4.000 "
+
+      - name: The window under Xvfb
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          src/target/quick/concat --version
+          xvfb-run -a -s "-screen 0 1600x900x24" bash -c '
+            src/target/quick/concat --smoke || echo "smoke exit $?"
+            src/target/quick/concat > out/window.log 2>&1 &
+            pid=$!
+            sleep 25
+            import -window root out/window.png || true
+            kill $pid 2>/dev/null || true
+          '
+          ls -la out
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: verify-desktop
+          path: |
+            out/window.png
+            out/window.log
+            out/shots.mp4
+            src/build.log
+          if-no-files-found: ignore

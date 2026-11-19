@@ -50,6 +50,9 @@ mod token;
 #[cfg(feature = "grpc")]
 pub mod grpc;
 
+#[cfg(feature = "pair")]
+pub mod pair;
+
 use std::collections::BTreeMap;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;

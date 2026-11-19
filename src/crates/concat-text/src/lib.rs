@@ -38,6 +38,8 @@
 //! stores them, so a title looks the same at 720p and 4K. Everything here
 //! converts to pixels once, at the top.
 
+pub mod karaoke;
+
 use std::collections::HashMap;
 use std::fmt;
 use std::ops::Range;
