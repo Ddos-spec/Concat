@@ -131,7 +131,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p out
+          mkdir -p out stage/lib
+          # whisper.cpp is built as shared libraries by whisper-rs-sys; the
+          # shipping bundle carries them in lib/, here they are gathered.
+          find src/target/quick/build -path '*whisper-rs-sys-*' \
+            \( -name 'libwhisper.so*' -o -name 'libggml*.so*' \) -exec cp -a {} stage/lib/ \;
+          ls stage/lib
+          export LD_LIBRARY_PATH="$PWD/stage/lib:$LD_LIBRARY_PATH"
           src/target/quick/concat --version
           xvfb-run -a -s "-screen 0 1600x900x24" bash -c '
             src/target/quick/concat --smoke || echo "smoke exit $?"
