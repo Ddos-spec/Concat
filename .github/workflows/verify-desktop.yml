@@ -68,6 +68,7 @@ jobs:
           test -n "$lib"
           cp "$lib" ort-lib/
           ln -sf "libonnxruntime.so.$ORT_VERSION" ort-lib/libonnxruntime.so
+          ln -sf "libonnxruntime.so.$ORT_VERSION" ort-lib/libonnxruntime.so.1
           ls -la ort-lib
           {
             echo "ORT_LIB_LOCATION=$PWD/ort-lib"
