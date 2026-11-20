@@ -24,7 +24,14 @@ def main() -> int:
          "command": {"op": "addClipAtFirstFree", "mediaId": "m2", "start": 6}},
         {"method": "edit.apply", "path": project,
          "command": {"op": "addTextClip", "above": True, "start": 0, "duration": 6,
-                     "style": {"content": "one two three four five six"}}},
+                     "style": {"content": "one two three four five six",
+                   "spoken": [
+                       {"start": 0.0, "end": 0.4, "text": "one"},
+                       {"start": 0.4, "end": 1.0, "text": "two"},
+                       {"start": 1.0, "end": 3.0, "text": "three"},
+                       {"start": 3.0, "end": 3.4, "text": "four"},
+                       {"start": 3.4, "end": 5.0, "text": "five"},
+                       {"start": 5.0, "end": 5.9, "text": "six"}]}}},
         # A title over the panning clip, placed in its upper right where the
         # picture has detail to hold on to: the one the follow action rides.
         {"method": "edit.apply", "path": project,

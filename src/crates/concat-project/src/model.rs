@@ -1673,6 +1673,26 @@ pub struct TextStyle {
     /// a document with them as the title in its own look.
     #[serde(skip_serializing_if = "Vec::is_empty", deserialize_with = "wire::list")]
     pub runs: Vec<TextRun>,
+    /// When each word was said, as a transcriber heard it, in seconds from
+    /// the caption's own start. Empty for a title nobody read aloud, and
+    /// then not written at all; karaoke times the words from these when
+    /// they are there and from the words' length when they are not.
+    #[serde(skip_serializing_if = "Vec::is_empty", deserialize_with = "wire::list")]
+    pub spoken: Vec<SpokenWord>,
+}
+
+/// One word a transcriber heard and when: seconds from the start of the
+/// caption it belongs to.
+#[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
+#[derive(Clone, PartialEq, Debug, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpokenWord {
+    /// When the word starts.
+    pub start: f64,
+    /// When it ends.
+    pub end: f64,
+    /// The word as heard, without the space before it.
+    pub text: String,
 }
 
 impl TextStyle {
@@ -1739,6 +1759,7 @@ impl Default for TextStyle {
             max_width: 0.0,
             max_height: 0.0,
             runs: Vec::new(),
+            spoken: Vec::new(),
         }
     }
 }

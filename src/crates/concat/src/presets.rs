@@ -168,6 +168,7 @@ impl PresetStyle {
             max_width: self.max_width.unwrap_or(0.0).max(0.0),
             max_height: self.max_height.unwrap_or(0.0).max(0.0),
             runs: self.runs.unwrap_or_default(),
+            spoken: Vec::new(),
         };
         // A hand-written run past the words, or on top of another, comes
         // out in the shape the editor keeps them in.

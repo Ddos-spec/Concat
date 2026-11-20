@@ -8295,7 +8295,9 @@ impl Studio {
     }
 
     /// Turns the title `id` into a karaoke caption: it is cut into one
-    /// piece per word, timed by the words' length across the caption's span,
+    /// piece per word, timed by when each was said where the caption carries
+    /// that (a transcribed one) and by the words' length across its span
+    /// where it does not,
     /// and each piece lights the words said so far.
     pub fn karaoke_clip(&mut self, id: &str) {
         let Some(clip) = self.clip(id).cloned() else {
@@ -8307,22 +8309,53 @@ impl Studio {
         let Some(content) = clip.text.as_ref().map(|text| text.content.clone()) else {
             return;
         };
-        let words = concat_text::karaoke::spread(&content, 0.0, clip.duration);
         let fps = f64::from(self.frame_rate().max(1.0));
         let edge = f64::from(MIN_DURATION);
-        let mut cuts: Vec<f64> = words
-            .iter()
-            .skip(1)
-            .map(|word| ((clip.start + word.start) * fps).round() / fps)
-            .collect();
-        cuts.dedup();
-        let inside = cuts
-            .iter()
-            .all(|time| *time > clip.start + edge && *time < clip.start + clip.duration - edge);
-        if words.len() < 2 || cuts.len() + 1 != words.len() || !inside {
-            self.notify(&t("studio.karaokeShort"), false);
-            return;
-        }
+        // Where each word is cut: from the times a transcriber heard when the
+        // caption carries them, and from the words' length when it does not or
+        // when what was heard cannot be cut cleanly (words on one frame, or
+        // outside the clip).
+        let cuts_for = |words: &[concat_text::karaoke::TimedWord]| -> Option<Vec<f64>> {
+            let mut cuts: Vec<f64> = words
+                .iter()
+                .skip(1)
+                .map(|word| ((clip.start + word.start) * fps).round() / fps)
+                .collect();
+            cuts.dedup();
+            let inside = cuts.iter().all(|time| {
+                *time > clip.start + edge && *time < clip.start + clip.duration - edge
+            });
+            (words.len() >= 2 && cuts.len() + 1 == words.len() && inside).then_some(cuts)
+        };
+        let heard: Vec<(f64, f64, &str)> = clip
+            .text
+            .as_ref()
+            .map(|text| {
+                text.spoken
+                    .iter()
+                    .map(|word| (word.start, word.end, word.text.as_str()))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let from_voice = if heard.is_empty() {
+            None
+        } else {
+            let words = concat_text::karaoke::align(&content, &heard);
+            cuts_for(&words).map(|cuts| (words, cuts))
+        };
+        let (words, cuts) = match from_voice {
+            Some(found) => found,
+            None => {
+                let words = concat_text::karaoke::spread(&content, 0.0, clip.duration);
+                match cuts_for(&words) {
+                    Some(cuts) => (words, cuts),
+                    None => {
+                        self.notify(&t("studio.karaokeShort"), false);
+                        return;
+                    }
+                }
+            }
+        };
         self.flush_commit();
         for time in cuts.iter().rev() {
             self.apply(Command::SplitClips {

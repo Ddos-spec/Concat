@@ -51,3 +51,7 @@ xvfb-run -a -s "-screen 0 1600x900x24" bash -c '
 
 # What the editor wrote, in numbers.
 python3 "$here/summarise-project.py" "$project" | tee "$out/project-summary.txt"
+
+# Karaoke must cut at the times the words were said, not by letter count.
+python3 "$here/check-karaoke.py" "$project" | tee "$out/karaoke-check.txt"
+test "${PIPESTATUS[0]}" -eq 0

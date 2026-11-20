@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use concat_project::Command;
-use concat_project::model::{ClipKind, TextStyle};
+use concat_project::model::{ClipKind, SpokenWord, TextStyle};
 use concat_project::srt;
 use concat_speech::JobStage;
 use concat_speech::transcribe::Segment;
@@ -206,12 +206,27 @@ impl CaptionsPane {
                             .filter_map(|segment| {
                                 let text = segment.text.trim().to_owned();
                                 (!text.is_empty()).then(|| {
+                                    // The words' times run from the
+                                    // caption's own start, on the timeline's
+                                    // clock and not the sound's.
+                                    let spoken = segment
+                                        .words
+                                        .iter()
+                                        .map(|word| SpokenWord {
+                                            start: ((word.start - segment.start) / subject.speed)
+                                                .max(0.0),
+                                            end: ((word.end - segment.start) / subject.speed)
+                                                .max(0.0),
+                                            text: word.text.clone(),
+                                        })
+                                        .collect();
                                     caption_clip(
                                         text,
                                         subject.start + segment.start / subject.speed,
                                         ((segment.end - segment.start) / subject.speed).max(0.2),
                                         look,
                                         base.as_ref(),
+                                        spoken,
                                     )
                                 })
                             })
@@ -455,7 +470,7 @@ impl CaptionsPane {
         let commands: Vec<Command> = lines
             .into_iter()
             .map(|(text, seconds)| {
-                let command = caption_clip(text, at, seconds, look, base.as_ref());
+                let command = caption_clip(text, at, seconds, look, base.as_ref(), Vec::new());
                 at += seconds;
                 command
             })
@@ -594,6 +609,7 @@ fn srt_commands(cues: Vec<srt::Cue>, look: (f64, f64), base: Option<&TextStyle>)
                 cue.end - cue.start,
                 look,
                 base,
+                Vec::new(),
             )
         })
         .collect()
@@ -743,6 +759,7 @@ fn caption_clip(
     duration: f64,
     look: (f64, f64),
     base: Option<&TextStyle>,
+    spoken: Vec<SpokenWord>,
 ) -> Command {
     let (offset_y, font_size) = look;
     // The kept look where there is one - family, weight, colours, stroke,
@@ -756,6 +773,7 @@ fn caption_clip(
             max_height: 0.0,
             // Runs are some words' looks, and these are other words.
             runs: Vec::new(),
+            spoken,
             ..base.clone()
         },
         None => TextStyle {
@@ -763,6 +781,7 @@ fn caption_clip(
             font_family: "Hanken Grotesk".to_owned(),
             font_size,
             font_weight: 600.0,
+            spoken,
             ..TextStyle::default()
         },
     };
