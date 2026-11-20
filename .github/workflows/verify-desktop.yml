@@ -100,7 +100,17 @@ jobs:
       - name: Tests of the new engine pieces
         shell: bash
         working-directory: src
-        run: cargo test --profile quick -p concat-vision -p concat-text -p concat-effects --lib 2>&1 | tail -60
+        run: |
+          mkdir -p ../out
+          set +e
+          cargo test --profile quick -p concat-vision -p concat-text -p concat-effects --lib > ../out/test.log 2>&1
+          code=$?
+          grep -E '^test result|^error' ../out/test.log
+          if [ $code -ne 0 ]; then
+            echo '--- the first panic that is not a poisoned lock, in full'
+            python3 ../scripts/ci/first-panic.py ../out/test.log
+          fi
+          exit $code
 
       - name: The HSL package, run through the GPU
         shell: bash
@@ -196,6 +206,7 @@ jobs:
           path: |
             out/*.png
             out/api.log
+            out/test.log
             out/drive-steps.log
             out/project-summary.txt
             out/drive.log
