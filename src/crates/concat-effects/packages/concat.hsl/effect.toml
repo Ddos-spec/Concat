@@ -3,7 +3,7 @@ format = 2
 [effect]
 id = "concat.hsl"
 name = "HSL"
-kind = "effect"
+kind = "filter"
 category = "Color"
 order = 13
 description = "Hue, saturation and lightness for each band of colour on its own: turn the sky, mute the greens, brighten the reds, and leave the rest of the picture alone."
