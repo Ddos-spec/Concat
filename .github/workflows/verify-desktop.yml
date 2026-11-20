@@ -149,12 +149,32 @@ jobs:
           '
           ls -la out
 
+      - name: The editor on a project made here
+        shell: bash
+        run: |
+          set -euo pipefail
+          export LD_LIBRARY_PATH="$PWD/stage/lib:$LD_LIBRARY_PATH"
+          here="$PWD"
+          rm -rf "$here/out/demo"
+          python3 scripts/ci/make-demo-project.py "$here/src/target/quick/concat-cli" \
+            "$here/out" "$here/out/shots.mp4" "$here/out/moving.mp4" | tee out/api.log | cut -c1-200
+          xvfb-run -a -s "-screen 0 1600x900x24" bash -c '
+            src/target/quick/concat --project "'"$here"'/out/demo" > out/editor.log 2>&1 &
+            pid=$!
+            sleep 30
+            import -window root out/editor.png || true
+            kill $pid 2>/dev/null || true
+          '
+          ls -la out
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: verify-desktop
           path: |
-            out/window.png
+            out/*.png
+            out/api.log
+            out/editor.log
             out/window.log
             out/shots.mp4
             src/build.log
