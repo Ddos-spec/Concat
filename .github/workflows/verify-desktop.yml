@@ -242,6 +242,26 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           exit $code
 
+      - name: Kokoro speaks, whisper listens (both models, both local)
+        shell: bash
+        working-directory: src
+        run: |
+          set +e
+          version=$(grep -A1 'name = "sherpa-onnx-sys"' Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
+          export SHERPA_ONNX_LIB_DIR="$PWD/../sherpa/sherpa-onnx-v$version-linux-x64-static-lib/lib"
+          export LD_LIBRARY_PATH="$PWD/../stage/lib:$LD_LIBRARY_PATH"
+          mkdir -p ../out
+          cargo test --profile quick -p concat-speech --lib -- --ignored a_local_voice_is_heard_by_local_whisper --nocapture > ../out/voice.log 2>&1
+          code=$?
+          {
+            echo '### Local text to speech, then local speech to text'
+            echo "exit $code"
+            echo '```'
+            grep -E 'kokoro downloaded|spoke |said :|heard:|test result|panicked|whisper caught' ../out/voice.log | head -12
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $code
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -250,6 +270,7 @@ jobs:
             out/*.png
             out/api.log
             out/whisper.log
+            out/voice.log
             out/hsl-before.png
             out/hsl-after.png
             out/hsl-red-after.png

@@ -1517,3 +1517,88 @@ mod tests {
         let _ = std::fs::remove_dir_all(&scratch);
     }
 }
+
+
+#[cfg(test)]
+mod real_voice {
+    use super::*;
+    use crate::transcribe::{TranscribeRequest, Transcriber};
+    use concat_host::AppDirs;
+
+    /// Both local models, from nothing: the app's own downloader fetches
+    /// Kokoro and `tiny.en` into an empty data folder, Kokoro reads a line
+    /// aloud into a WAV, and whisper listens to that WAV and says what it
+    /// heard. Nothing leaves the machine after the downloads. Ignored: it
+    /// downloads about two hundred megabytes.
+    ///
+    ///   cargo test -p concat-speech --lib -- --ignored a_local_voice_is_heard_by_local_whisper --nocapture
+    #[test]
+    #[ignore = "downloads Kokoro (132 MB) and whisper tiny.en (74 MB)"]
+    fn a_local_voice_is_heard_by_local_whisper() {
+        let scratch = std::env::temp_dir().join(format!("concat-voice-real-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        let dirs = AppDirs::under(&scratch);
+        let project = scratch.join("project");
+        std::fs::create_dir_all(&project).expect("a project folder");
+
+        let speech = Speech::new();
+        speech
+            .download_model(&dirs, "kokoro-int8-multi-lang-v1_0", |p| {
+                if p.done {
+                    eprintln!("kokoro downloaded, {} MB", p.received / 1_000_000);
+                }
+            })
+            .expect("Kokoro downloads and matches its hash");
+        let said = "Hello world. This is a test of the local voice and the local transcriber.";
+        let spoken = speech
+            .speak(
+                &dirs,
+                &SpeakRequest {
+                    model_id: "kokoro-int8-multi-lang-v1_0".to_owned(),
+                    voice: 3,
+                    reference: None,
+                    text: said.to_owned(),
+                    speed: 1.0,
+                    pauses: None,
+                    steps: None,
+                    project: project.display().to_string(),
+                },
+                |_| {},
+            )
+            .expect("Kokoro speaks");
+        eprintln!("spoke {:.2}s into {}", spoken.duration, spoken.path);
+        assert!(spoken.duration > 2.0, "a sentence is not that short");
+        assert!(std::path::Path::new(&spoken.path).is_file(), "the WAV is on disk");
+
+        let transcriber = Transcriber::new();
+        transcriber
+            .download_model(&dirs, "tiny.en", |_| {})
+            .expect("whisper's model downloads");
+        let segments = transcriber
+            .transcribe(
+                &dirs,
+                &TranscribeRequest {
+                    path: spoken.path.clone(),
+                    audio_stream: None,
+                    source_start: 0.0,
+                    window: spoken.duration + 1.0,
+                    model_id: "tiny.en".to_owned(),
+                },
+                |_| {},
+            )
+            .expect("whisper listens");
+        let heard: String = segments
+            .iter()
+            .map(|segment| segment.text.to_lowercase())
+            .collect::<Vec<_>>()
+            .join(" ");
+        eprintln!("said : {said}");
+        eprintln!("heard: {heard}");
+        let matched = ["hello", "world", "test", "local", "voice", "transcriber"]
+            .iter()
+            .filter(|word| heard.contains(**word))
+            .count();
+        assert!(matched >= 3, "whisper caught {matched} of the six key words: {heard:?}");
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
+}
