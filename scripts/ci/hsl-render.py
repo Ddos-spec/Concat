@@ -10,6 +10,7 @@ same frame must come back grey; with the effect off it must stay green. The
 frame is composited by the same code a preview and an export use.
 """
 import json
+import re
 import subprocess
 import sys
 
@@ -43,10 +44,12 @@ def main() -> int:
     proc.wait(timeout=60)
 
     def centre(path):
-        text = subprocess.run(["convert", f"{path}[1x1+960+540]", "txt:-"],
-                              capture_output=True, text=True).stdout
-        hexa = [t for t in text.split() if t.startswith("#")][0]
-        return tuple(int(hexa[i:i + 2], 16) for i in (1, 3, 5))
+        done = subprocess.run(["convert", path, "-crop", "1x1+960+540", "+repage", "-depth", "8", "txt:-"],
+                              capture_output=True, text=True)
+        found = re.search(r"\((\d+),\s*(\d+),\s*(\d+)", done.stdout)
+        if not found:
+            raise SystemExit(f"could not read a pixel of {path}: {done.stdout!r} {done.stderr!r}")
+        return tuple(int(v) for v in found.groups())
 
     before, after, red = (centre(f"{work}/hsl-before.png"), centre(f"{work}/hsl-after.png"),
                           centre(f"{work}/hsl-red-after.png"))
