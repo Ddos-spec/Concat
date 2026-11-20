@@ -743,8 +743,12 @@ component CreateTile inherits Pressable {
     property <color> ink: root.primary ? Theme.on-accent : Theme.fg;
 
     label: root.title;
+    // The main verb is a banner of accent shading from deep to bright,
+    // the way CapCut's Create project is, and not a flat block.
     background: root.primary
-        ? (root.lit && !root.down ? Theme.accent-hover : Theme.accent)
+        ? (root.lit && !root.down
+            ? @linear-gradient(110deg, Theme.accent-hover.darker(0.05) 0%, Theme.accent-hover 60%, Theme.accent-hover.brighter(0.15) 100%)
+            : @linear-gradient(110deg, Theme.accent.darker(0.08) 0%, Theme.accent 60%, Theme.accent.brighter(0.15) 100%))
         : (root.lit ? Theme.launch-raised : Theme.launch-panel);
     border-width: root.primary ? 0px : 1px;
     border-color: root.lit ? Theme.line-strong : Theme.line;
@@ -784,7 +788,7 @@ component CreateTile inherits Pressable {
             Text {
                 text: root.title;
                 color: root.ink;
-                font-size: 16px;
+                font-size: root.primary ? 19px : 16px;
                 font-weight: Theme.weight-title;
                 overflow: elide;
             }
@@ -1686,7 +1690,7 @@ component WideHome inherits Rectangle {
 
                 // ── create ───────────────────────────────────────────
                 create-row := HorizontalLayout {
-                    height: 92px;
+                    height: 108px;
                     spacing: 14px;
 
                     CreateTile {
