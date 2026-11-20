@@ -25,6 +25,14 @@ def main() -> int:
         {"method": "edit.apply", "path": project,
          "command": {"op": "addTextClip", "above": True, "start": 0, "duration": 6,
                      "style": {"content": "one two three four five six"}}},
+        # A title over the panning clip, placed in its upper right where the
+        # picture has detail to hold on to: the one the follow action rides.
+        {"method": "edit.apply", "path": project,
+         "command": {"op": "addTextClip", "above": True, "start": 6, "duration": 3,
+                     "style": {"content": "track me"}}},
+        {"method": "edit.apply", "path": project,
+         "command": {"op": "setClipTransform", "clipId": "c6",
+                     "offsetX": 0.4, "offsetY": -0.4}},
         {"method": "project.save", "path": project},
     ]
     stdin = "".join(json.dumps(request) + "\n" for request in requests)

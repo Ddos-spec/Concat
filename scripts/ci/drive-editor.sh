@@ -43,7 +43,7 @@ xvfb-run -a -s "-screen 0 1600x900x24" bash -c '
   menu 347 845 576 colour
   sleep 12; shot 03-after-colour
   xdotool mousemove 1340 112 click 1; sleep 2; shot 04-adjust-panel
-  menu 205 761 759 follow
+  menu 347 761 759 follow
   sleep 12; shot 05-after-follow
   xdotool key ctrl+s; sleep 4; shot 06-saved
   kill $pid 2>/dev/null || true
