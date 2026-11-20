@@ -268,7 +268,16 @@ jobs:
         run: |
           set +e
           mkdir -p ../out
-          curl -fsSL -o ../out/astronaut.png https://raw.githubusercontent.com/scikit-image/scikit-image/main/skimage/data/astronaut.png
+          for url in \
+            https://raw.githubusercontent.com/scikit-image/scikit-image/main/src/skimage/data/astronaut.png \
+            https://raw.githubusercontent.com/scikit-image/scikit-image/v0.19.3/skimage/data/astronaut.png \
+            https://raw.githubusercontent.com/scikit-image/scikit-image/v0.22.0/skimage/data/astronaut.png; do
+            curl -fsSL -o ../out/astronaut.png "$url" && break
+          done
+          if [ ! -s ../out/astronaut.png ]; then
+            pip install -q scikit-image && python3 -c "from skimage import data, io; io.imsave('../out/astronaut.png', data.astronaut())"
+          fi
+          ls -la ../out/astronaut.png
           size=$(identify -format '%wx%h' ../out/astronaut.png)
           convert ../out/astronaut.png -depth 8 rgba:../out/astronaut.rgba
           export LD_LIBRARY_PATH="$PWD/../stage/lib:$LD_LIBRARY_PATH"
