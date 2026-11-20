@@ -25,18 +25,65 @@ struct Params {
     magenta_lum: f32,
 }
 
-// One band, as the library's hsl_band but a turn of nothing is no turn at all:
-// the YIQ rotation does not undo itself exactly, and a panel at zero is the
-// picture as it came, not one drifted by a hundredth.
-fn hsl_pick(rgb: vec3<f32>, centre: f32, width: f32, turn: f32, sat: f32, lum: f32) -> vec3<f32> {
-    let w = hue_mask(rgb, centre, width);
-    var out = rgb;
-    if (turn != 0.0) {
-        out = hue_rotate(out, turn);
+// The bands are worked here, not through the library's hsl_band: a turn of
+// nothing must be no turn at all (the YIQ rotation does not undo itself
+// exactly, and a panel at zero is the picture as it came, not one drifted by
+// a hundredth), and the helpers it leans on are only stitched in when a
+// package names them.
+
+/// Hue in degrees, 0..360; 0 for a grey.
+fn hsl_hue(c: vec3<f32>) -> f32 {
+    let mx = max(max(c.r, c.g), c.b);
+    let mn = min(min(c.r, c.g), c.b);
+    let d = mx - mn;
+    if (d < 0.0001) {
+        return 0.0;
     }
-    out = saturation(out, sat);
-    out = out * lum;
-    return mix(rgb, out, w);
+    var h: f32;
+    if (mx == c.r) {
+        h = (c.g - c.b) / d;
+    } else if (mx == c.g) {
+        h = 2.0 + (c.b - c.r) / d;
+    } else {
+        h = 4.0 + (c.r - c.g) / d;
+    }
+    return fract(h / 6.0) * 360.0;
+}
+
+/// How much a pixel belongs to the hues within `width` degrees of `centre`,
+/// weighted by chroma so a grey belongs to no band.
+fn hsl_mask(c: vec3<f32>, centre: f32, width: f32) -> f32 {
+    let d = abs(fract((hsl_hue(c) - centre) / 360.0 + 0.5) * 360.0 - 180.0);
+    let chroma = max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b);
+    return (1.0 - smoothstep(width * 0.5, width, d)) * smoothstep(0.0, 0.25, chroma);
+}
+
+/// Every hue turned by `degrees`, brightness held: a rotation in the YIQ plane.
+fn hsl_turn(c: vec3<f32>, degrees: f32) -> vec3<f32> {
+    let a = radians(degrees);
+    let y = dot(c, vec3<f32>(0.299, 0.587, 0.114));
+    let i = dot(c, vec3<f32>(0.596, -0.274, -0.322));
+    let q = dot(c, vec3<f32>(0.211, -0.523, 0.312));
+    let i2 = i * cos(a) - q * sin(a);
+    let q2 = i * sin(a) + q * cos(a);
+    return vec3<f32>(
+        y + 0.956 * i2 + 0.621 * q2,
+        y - 0.272 * i2 - 0.647 * q2,
+        y - 1.106 * i2 + 1.703 * q2,
+    );
+}
+
+/// One band: its hue turned, its saturation scaled about luminance and its
+/// lightness scaled, weighted by `hsl_mask` so the edges of the band blend.
+fn hsl_pick(c: vec3<f32>, centre: f32, width: f32, turn: f32, sat: f32, lum: f32) -> vec3<f32> {
+    let w = hsl_mask(c, centre, width);
+    var out = c;
+    if (turn != 0.0) {
+        out = hsl_turn(out, turn);
+    }
+    let l = dot(out, vec3<f32>(0.2126, 0.7152, 0.0722));
+    out = mix(vec3<f32>(l), out, sat) * lum;
+    return mix(c, out, w);
 }
 
 // What a grading panel's HSL tab does: eight bands of colour, each with its
