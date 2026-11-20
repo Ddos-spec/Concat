@@ -114,17 +114,22 @@ jobs:
 
       - name: The HSL package, run through the GPU
         shell: bash
+        working-directory: src
         run: |
           set +e
-          cli=src/target/quick/concat-cli
-          check=$($cli check src/crates/concat-effects/packages/concat.hsl 2>&1)
+          mkdir -p ../out
+          # Every built-in package's probes through its shader on the GPU, which
+          # here is Mesa's software Vulkan; the HSL package's are among them.
+          CONCAT_REQUIRE_GPU=1 cargo test --profile quick -p concat-render --lib \
+            every_package_probe_holds -- --nocapture > ../out/probes.log 2>&1
           code=$?
-          listed=$(echo '{"method":"catalogue.list","kind":"effect"}' | $cli api | python3 scripts/ci/find-effect.py concat.hsl)
+          cli=target/quick/concat-cli
+          listed=$(echo '{"method":"catalogue.list","kind":"filter"}' | $cli api | python3 ../scripts/ci/find-effect.py concat.hsl)
           {
-            echo '### concat.hsl: check (shader, fixtures, probes)'
+            echo '### Shader probes of every built-in package, on the GPU'
             echo "exit $code"
             echo '```'
-            echo "$check" | tail -30
+            grep -E 'probes$|^test |test result|a software adapter|panicked|FAIL|expected|rendered|concat.hsl' ../out/probes.log | head -40
             echo '```'
             echo '### concat.hsl in the catalogue'
             echo '```'
@@ -206,6 +211,7 @@ jobs:
           path: |
             out/*.png
             out/api.log
+            out/probes.log
             out/test.log
             out/drive-steps.log
             out/project-summary.txt
