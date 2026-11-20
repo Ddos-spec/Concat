@@ -338,6 +338,22 @@ pub struct Segment {
     pub end: f64,
     /// What was said.
     pub text: String,
+    /// The words of `text` with the time each was said, as whisper's own
+    /// token timestamps give them. Empty when the model gave none.
+    pub words: Vec<Word>,
+}
+
+/// One spoken word and when it was said, in seconds relative to the
+/// transcribed window's start.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Word {
+    /// Seconds from the window's start.
+    pub start: f64,
+    /// Seconds from the window's start.
+    pub end: f64,
+    /// The word, without the space before it.
+    pub text: String,
 }
 
 /// What to transcribe.
@@ -583,6 +599,9 @@ impl Transcriber {
         params.set_print_realtime(false);
         params.set_print_timestamps(false);
         params.set_suppress_blank(true);
+        // Each token's own start and end, which is what a karaoke caption
+        // lights the words by.
+        params.set_token_timestamps(true);
         // The raw hooks, not `set_abort_callback_safe`. whisper-rs 0.16's
         // safe one hands whisper a pointer to a boxed trait object with a
         // trampoline typed for the closure itself, so whisper reads the
@@ -638,7 +657,20 @@ impl Transcriber {
                 let end = segment.end_timestamp() as f64 / 100.0;
                 let (start, end) = on_speech(start, end, &speech);
                 let text = segment.to_str_lossy().ok()?.trim().to_owned();
-                keep_segment(start, end, text)
+                let mut tokens = Vec::new();
+                for i in 0..segment.n_tokens() {
+                    let Some(token) = segment.get_token(i) else {
+                        continue;
+                    };
+                    let data = token.token_data();
+                    let piece = token.to_str_lossy().map(|p| p.into_owned()).unwrap_or_default();
+                    tokens.push((piece, data.t0 as f64 / 100.0, data.t1 as f64 / 100.0));
+                }
+                let words = words_of(&tokens);
+                keep_segment(start, end, text).map(|mut kept| {
+                    kept.words = words;
+                    kept
+                })
             })
             .collect())
     }
@@ -661,7 +693,41 @@ fn keep_segment(start: f64, end: f64, text: String) -> Option<Segment> {
     if text.is_empty() || (text.starts_with('[') && text.ends_with(']')) {
         return None;
     }
-    (end > start).then_some(Segment { start, end, text })
+    (end > start).then_some(Segment {
+        start,
+        end,
+        text,
+        words: Vec::new(),
+    })
+}
+
+/// Whisper's tokens as words: a token that starts with a space opens a new
+/// word and the ones that follow it continue it. The special tokens
+/// (`[_BEG_]`, `<|endoftext|>`, timestamps) are not words. A word begins when
+/// its first token does and ends when its last token does.
+fn words_of(tokens: &[(String, f64, f64)]) -> Vec<Word> {
+    let mut words: Vec<Word> = Vec::new();
+    for (piece, start, end) in tokens {
+        if piece.starts_with("[_") || piece.starts_with("<|") {
+            continue;
+        }
+        let opens = piece.starts_with(' ') || words.is_empty();
+        let text = piece.trim();
+        if text.is_empty() {
+            continue;
+        }
+        if opens {
+            words.push(Word {
+                start: *start,
+                end: (*end).max(*start),
+                text: text.to_owned(),
+            });
+        } else if let Some(last) = words.last_mut() {
+            last.text.push_str(text);
+            last.end = (*end).max(last.end);
+        }
+    }
+    words
 }
 
 #[cfg(test)]
@@ -717,6 +783,24 @@ mod tests {
         // Over no detected speech, or with no detector: whisper's times.
         assert_eq!(on_speech(40.0, 45.0, &speech), (40.0, 45.0));
         assert_eq!(on_speech(0.0, 7.0, &[]), (0.0, 7.0));
+    }
+
+    #[test]
+    fn tokens_group_into_words_and_specials_are_dropped() {
+        let tokens = vec![
+            ("[_BEG_]".to_owned(), 0.0, 0.0),
+            (" Hel".to_owned(), 0.10, 0.30),
+            ("lo".to_owned(), 0.30, 0.52),
+            (" world".to_owned(), 0.60, 1.00),
+            (".".to_owned(), 1.00, 1.05),
+            ("<|endoftext|>".to_owned(), 1.05, 1.05),
+        ];
+        let words = words_of(&tokens);
+        assert_eq!(words.len(), 2);
+        assert_eq!(words[0].text, "Hello");
+        assert!((words[0].start - 0.10).abs() < 1e-9 && (words[0].end - 0.52).abs() < 1e-9);
+        assert_eq!(words[1].text, "world.");
+        assert!((words[1].end - 1.05).abs() < 1e-9);
     }
 
     #[test]
@@ -848,6 +932,19 @@ mod real_audio {
             eprintln!("{:.2}-{:.2} {}", segment.start, segment.end, segment.text);
         }
         eprintln!("heard: {heard}");
+        let spoken: Vec<&Word> = segments.iter().flat_map(|segment| segment.words.iter()).collect();
+        for word in &spoken {
+            eprintln!("word {:.2}-{:.2} {}", word.start, word.end, word.text);
+        }
+        assert!(spoken.len() >= 5, "whisper timed {} words", spoken.len());
+        assert!(
+            spoken.windows(2).all(|pair| pair[1].start >= pair[0].start - 1e-6),
+            "the words are in the order they were said"
+        );
+        assert!(
+            spoken.iter().all(|word| word.end >= word.start && word.start >= 0.0),
+            "every word has a span"
+        );
         assert!(
             expect.iter().any(|word| heard.contains(word)),
             "none of {expect:?} in {heard:?}"
