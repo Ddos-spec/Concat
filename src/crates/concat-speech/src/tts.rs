@@ -1540,6 +1540,7 @@ mod real_voice {
         let dirs = AppDirs::under(&scratch);
         let project = scratch.join("project");
         std::fs::create_dir_all(&project).expect("a project folder");
+        std::fs::write(project.join("concat.json"), b"{}").expect("the project file");
 
         let speech = Speech::new();
         speech
