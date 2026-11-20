@@ -102,14 +102,14 @@ component LibraryTab inherits Rectangle {
     // box-shadow, so the value step carries the lift alone — which is why this
     // is `field` and not the lighter `field-hover`, whose job is to answer the
     // pointer.
-    background: root.current ? Theme.field : Colors.transparent;
+    background: Colors.transparent;
 
     animate background { duration: 120ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
 
     // The mark and the label share one tint, so a chip lights up as one thing
     // under the pointer and not as a glyph that answers and a word that
     // follows.
-    property <brush> tint: (root.current || touch.has-hover) ? Theme.fg : Theme.fg-muted;
+    property <brush> tint: root.current ? Theme.accent : (touch.has-hover ? Theme.fg : Theme.fg-muted);
 
     animate tint { duration: 140ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
 
@@ -130,7 +130,7 @@ component LibraryTab inherits Rectangle {
             alignment: center;
             Icon {
                 glyph: root.glyph;
-                size: 13px;
+                size: 18px;
                 tint: root.tint;
             }
         }
@@ -279,8 +279,8 @@ component CategoryRow inherits Rectangle {
         Text {
             horizontal-stretch: 1;
             text: root.label;
-            color: root.current ? Theme.fg : Theme.fg-muted;
-            font-size: Theme.fs-sm;
+            color: root.current ? Theme.accent : Theme.fg;
+            font-size: Theme.fs-lg;
             vertical-alignment: center;
             overflow: elide;
         }

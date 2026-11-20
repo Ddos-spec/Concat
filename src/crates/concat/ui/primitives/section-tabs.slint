@@ -57,7 +57,7 @@ export component SectionTabs inherits Rectangle {
 
     for option[index] in root.options: tab := Rectangle {
         property <bool> on: index == root.current;
-        property <brush> ink: self.on ? Theme.fg : segment.has-hover ? Theme.fg : Theme.fg-muted;
+        property <brush> ink: self.on ? Theme.accent : segment.has-hover ? Theme.fg : Theme.fg-muted;
 
         x: index * root.seg-w;
         y: 0;
