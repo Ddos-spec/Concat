@@ -204,6 +204,17 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           ls -la out
 
+      - name: HSL on a real frame, through the compositor
+        shell: bash
+        run: |
+          set +e
+          export LD_LIBRARY_PATH="$PWD/stage/lib:$LD_LIBRARY_PATH"
+          rm -rf out/hslproj
+          report=$(python3 scripts/ci/hsl-render.py "$PWD/src/target/quick/concat-cli" "$PWD/out" "$PWD/out/shots.mp4" 2>&1)
+          code=$?
+          { echo '### HSL on a real frame'; echo '```'; echo "$report"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $code
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -211,6 +222,9 @@ jobs:
           path: |
             out/*.png
             out/api.log
+            out/hsl-before.png
+            out/hsl-after.png
+            out/hsl-red-after.png
             out/probes.log
             out/test.log
             out/drive-steps.log
