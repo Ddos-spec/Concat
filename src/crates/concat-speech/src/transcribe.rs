@@ -791,4 +791,67 @@ mod real_audio {
         }
         assert!(!segments.is_empty(), "no words heard");
     }
+
+    /// The whole local path from nothing: the app's own downloader fetches
+    /// `tiny.en` into an empty data folder (checked against its pinned
+    /// hash), whisper.cpp runs it in this process, and the words come back.
+    /// No account and no network after the download. Ignored: it downloads
+    /// seventy-odd megabytes.
+    ///
+    ///   CONCAT_TRANSCRIBE_AUDIO=speech.wav CONCAT_EXPECT_WORDS=hello,test \
+    ///     cargo test -p concat-speech --lib -- --ignored downloads_the_model_and_hears_the_words --nocapture
+    #[test]
+    #[ignore = "downloads tiny.en and needs CONCAT_TRANSCRIBE_AUDIO"]
+    fn downloads_the_model_and_hears_the_words() {
+        let Ok(audio) = std::env::var("CONCAT_TRANSCRIBE_AUDIO") else {
+            panic!("CONCAT_TRANSCRIBE_AUDIO names the speech to transcribe");
+        };
+        let expect: Vec<String> = std::env::var("CONCAT_EXPECT_WORDS")
+            .unwrap_or_else(|_| "hello".to_owned())
+            .split(',')
+            .map(|word| word.trim().to_lowercase())
+            .collect();
+        let scratch = std::env::temp_dir().join(format!("concat-whisper-real-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&scratch);
+        let dirs = AppDirs::under(&scratch);
+        let transcriber = Transcriber::new();
+        let mut last = 0u64;
+        transcriber
+            .download_model(&dirs, "tiny.en", |p| {
+                if p.received / 10_000_000 != last / 10_000_000 {
+                    eprintln!("downloaded {} MB", p.received / 1_000_000);
+                }
+                last = p.received;
+            })
+            .expect("the model downloads and matches its hash");
+        let status = Transcriber::status(&dirs).expect("status");
+        assert!(
+            status.models.iter().any(|m| m.id == "tiny.en" && m.downloaded),
+            "the model is on disk"
+        );
+        let request = TranscribeRequest {
+            path: audio,
+            audio_stream: None,
+            source_start: 0.0,
+            window: 30.0,
+            model_id: "tiny.en".to_owned(),
+        };
+        let segments = transcriber
+            .transcribe(&dirs, &request, |stage| eprintln!("{stage:?}"))
+            .expect("transcription");
+        let heard: String = segments
+            .iter()
+            .map(|segment| segment.text.to_lowercase())
+            .collect::<Vec<_>>()
+            .join(" ");
+        for segment in &segments {
+            eprintln!("{:.2}-{:.2} {}", segment.start, segment.end, segment.text);
+        }
+        eprintln!("heard: {heard}");
+        assert!(
+            expect.iter().any(|word| heard.contains(word)),
+            "none of {expect:?} in {heard:?}"
+        );
+        let _ = std::fs::remove_dir_all(&scratch);
+    }
 }

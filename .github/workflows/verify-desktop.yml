@@ -215,6 +215,27 @@ jobs:
           { echo '### HSL on a real frame'; echo '```'; echo "$report"; echo '```'; } | tee -a "$GITHUB_STEP_SUMMARY"
           exit $code
 
+      - name: Whisper, downloaded by the app's own code and run here
+        shell: bash
+        working-directory: src
+        run: |
+          set +e
+          sudo apt-get install -y espeak-ng > /dev/null
+          mkdir -p ../out
+          espeak-ng -v en-us -s 130 -w ../out/speech.wav "Hello world. This is a test of the local transcriber."
+          export LD_LIBRARY_PATH="$PWD/../stage/lib:$LD_LIBRARY_PATH"
+          CONCAT_TRANSCRIBE_AUDIO="$PWD/../out/speech.wav" CONCAT_EXPECT_WORDS="hello,world,test,transcrib" \
+            cargo test --profile quick -p concat-speech --lib -- --ignored downloads_the_model_and_hears_the_words --nocapture > ../out/whisper.log 2>&1
+          code=$?
+          {
+            echo '### Local speech to text: model downloaded, then whisper.cpp in this process'
+            echo "exit $code"
+            echo '```'
+            grep -E 'heard:|downloaded [0-9]+ MB|test result|panicked|none of|^[0-9]+\.[0-9]+-' ../out/whisper.log | head -20
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $code
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -222,6 +243,7 @@ jobs:
           path: |
             out/*.png
             out/api.log
+            out/whisper.log
             out/hsl-before.png
             out/hsl-after.png
             out/hsl-red-after.png
