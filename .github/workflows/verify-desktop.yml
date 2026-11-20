@@ -262,6 +262,28 @@ jobs:
           } | tee -a "$GITHUB_STEP_SUMMARY"
           exit $code
 
+      - name: The built-in person model on a real photograph
+        shell: bash
+        working-directory: src
+        run: |
+          set +e
+          mkdir -p ../out
+          curl -fsSL -o ../out/astronaut.png https://raw.githubusercontent.com/scikit-image/scikit-image/main/skimage/data/astronaut.png
+          size=$(identify -format '%wx%h' ../out/astronaut.png)
+          convert ../out/astronaut.png -depth 8 rgba:../out/astronaut.rgba
+          export LD_LIBRARY_PATH="$PWD/../stage/lib:$LD_LIBRARY_PATH"
+          CONCAT_PERSON_RGBA="$PWD/../out/astronaut.rgba" CONCAT_PERSON_SIZE="$size" CONCAT_MASK_OUT="$PWD/../out/person-mask.png" \
+            cargo test --profile quick -p concat-vision --features infer --lib -- --ignored the_built_in_model_finds_a_person --nocapture > ../out/person.log 2>&1
+          code=$?
+          {
+            echo '### Local person cutout on a real photograph'
+            echo "exit $code"
+            echo '```'
+            grep -E 'photo [0-9]|flat grey|test result|panicked|error' ../out/person.log | head -12
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $code
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
@@ -271,6 +293,9 @@ jobs:
             out/api.log
             out/whisper.log
             out/voice.log
+            out/person.log
+            out/person-mask.png
+            out/astronaut.png
             out/hsl-before.png
             out/hsl-after.png
             out/hsl-red-after.png

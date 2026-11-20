@@ -308,3 +308,75 @@ mod tests {
         assert_eq!(segmenter.input_size(1000, 1000), (512, 512));
     }
 }
+
+
+#[cfg(test)]
+mod real_person {
+    use super::*;
+    use concat_core::frame::Frame;
+
+    fn frame_from(path: &str, size: &str) -> Frame {
+        let (w, h) = size.split_once('x').expect("WIDTHxHEIGHT");
+        let (w, h): (u32, u32) = (w.parse().expect("width"), h.parse().expect("height"));
+        let rgba = std::fs::read(path).expect("the raw RGBA file");
+        Frame::from_rgba(w, h, rgba).expect("a frame of that size")
+    }
+
+    fn covered(mask: &Mask) -> f64 {
+        let lit = mask.bytes().iter().filter(|v| **v >= 128).count();
+        lit as f64 / mask.bytes().len().max(1) as f64
+    }
+
+    /// The person model that ships inside the program, run on a real
+    /// photograph of a person (NASA's portrait of an astronaut, public
+    /// domain) and on a flat grey picture with nobody in it. Nothing is
+    /// downloaded and nothing leaves the machine. The mask is written out
+    /// so it can be looked at. Ignored: it wants the picture.
+    ///
+    ///   CONCAT_PERSON_RGBA=astro.rgba CONCAT_PERSON_SIZE=512x512 CONCAT_MASK_OUT=mask.png \
+    ///     cargo test -p concat-vision --features infer --lib -- --ignored the_built_in_model_finds_a_person --nocapture
+    #[test]
+    #[ignore = "needs CONCAT_PERSON_RGBA and CONCAT_PERSON_SIZE"]
+    fn the_built_in_model_finds_a_person() {
+        let (Ok(path), Ok(size)) = (
+            std::env::var("CONCAT_PERSON_RGBA"),
+            std::env::var("CONCAT_PERSON_SIZE"),
+        ) else {
+            panic!("CONCAT_PERSON_RGBA and CONCAT_PERSON_SIZE name the picture");
+        };
+        let photo = frame_from(&path, &size);
+        let segmenter = Segmenter::selfie().expect("the compiled-in model loads");
+        segmenter.begin();
+        let mask = segmenter.mask(&photo).expect("the photo is segmented");
+        let share = covered(&mask);
+        // Where the lit part of the mask sits, as a share of the width and height.
+        let (mut sx, mut sy, mut n) = (0.0f64, 0.0f64, 0.0f64);
+        for y in 0..mask.height() {
+            for x in 0..mask.width() {
+                if mask.get(x, y) >= 128 {
+                    sx += f64::from(x);
+                    sy += f64::from(y);
+                    n += 1.0;
+                }
+            }
+        }
+        let centre = (sx / n.max(1.0) / f64::from(mask.width()), sy / n.max(1.0) / f64::from(mask.height()));
+        eprintln!(
+            "photo {}x{}: mask {}x{}, person covers {:.1}% of it, centred at ({:.2}, {:.2})",
+            photo.width(), photo.height(), mask.width(), mask.height(), share * 100.0, centre.0, centre.1
+        );
+        if let Ok(out) = std::env::var("CONCAT_MASK_OUT") {
+            std::fs::write(&out, mask.to_png()).expect("the mask is written");
+        }
+        assert!((0.08..=0.75).contains(&share), "a person fills some of the picture, not {share}");
+        assert!((0.2..=0.8).contains(&centre.0) && (0.2..=0.8).contains(&centre.1), "centred on the subject: {centre:?}");
+
+        // Nobody in a flat grey picture.
+        let empty = Frame::from_rgba(photo.width(), photo.height(), [128u8, 128, 128, 255].repeat((photo.width() * photo.height()) as usize))
+            .expect("a grey frame");
+        segmenter.begin();
+        let none = covered(&segmenter.mask(&empty).expect("segments"));
+        eprintln!("flat grey picture: {:.1}% covered", none * 100.0);
+        assert!(none < 0.05, "no person in a grey picture, but {none} was found");
+    }
+}
