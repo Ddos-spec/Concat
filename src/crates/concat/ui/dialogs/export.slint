@@ -616,7 +616,7 @@ export component ExportDialog inherits Rectangle {
     /// How many columns the width holds. Three groups a column wide need
     /// about 330px each; under two of those the sheet is a phone's single
     /// column and scrolls.
-    property <int> columns: root.width >= 1080px ? 3 : root.width >= 720px ? 2 : 1;
+    property <int> columns: sheet.width >= 1080px ? 3 : sheet.width >= 720px ? 2 : 1;
 
     /// How far down the sheet is, as a share of the window: 0 up, 1 gone.
     /// A share rather than a length, so a window resized while the sheet is
@@ -630,12 +630,25 @@ export component ExportDialog inherits Rectangle {
     // the way out is seen as well as the way in.
     visible: root.data.open || root.lowered < 1;
 
+    // On a desk the sheet is a card in the middle of the window over a dimmed
+    // page, two columns wide, the way CapCut's export is; a finger, or a
+    // window too narrow for two columns, keeps the full-bleed sheet.
+    if !root.phone && root.width >= 760px: Rectangle {
+        background: Colors.black.with-alpha(0.55 * (1 - root.lowered));
+        TouchArea { }
+    }
+
     sheet := Rectangle {
-        x: 0;
-        y: root.height * root.lowered;
-        width: root.width;
-        height: root.height;
+        property <bool> card: !root.phone && root.width >= 760px;
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2 + root.height * root.lowered;
+        width: self.card ? Math.min(root.width - 64px, 960px) : root.width;
+        height: self.card ? Math.min(root.height - 64px, 720px) : root.height;
         background: Theme.panel;
+        border-radius: self.card ? Theme.r-xl : 0px;
+        border-width: self.card ? 1px : 0px;
+        border-color: Theme.line;
+        clip: self.card;
 
         // Nothing under the sheet takes a press while it is up.
         TouchArea { }
