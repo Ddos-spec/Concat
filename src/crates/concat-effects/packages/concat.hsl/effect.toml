@@ -1,0 +1,255 @@
+format = 2
+
+[effect]
+id = "concat.hsl"
+name = "HSL"
+kind = "effect"
+category = "Color"
+order = 13
+description = "Hue, saturation and lightness for each band of colour on its own: turn the sky, mute the greens, brighten the reds, and leave the rest of the picture alone."
+
+[[param]]
+key = "red_hue"
+group = "Red"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "red_sat"
+group = "Red"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "red_lum"
+group = "Red"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_hue"
+group = "Orange"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_sat"
+group = "Orange"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "orange_lum"
+group = "Orange"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_hue"
+group = "Yellow"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_sat"
+group = "Yellow"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "yellow_lum"
+group = "Yellow"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_hue"
+group = "Green"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_sat"
+group = "Green"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "green_lum"
+group = "Green"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_hue"
+group = "Cyan"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_sat"
+group = "Cyan"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "cyan_lum"
+group = "Cyan"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_hue"
+group = "Blue"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_sat"
+group = "Blue"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "blue_lum"
+group = "Blue"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_hue"
+group = "Purple"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_sat"
+group = "Purple"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "purple_lum"
+group = "Purple"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_hue"
+group = "Magenta"
+label = "Hue"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_sat"
+group = "Magenta"
+label = "Saturation"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[[param]]
+key = "magenta_lum"
+group = "Magenta"
+label = "Lightness"
+min = -100
+max = 100
+default = 0
+step = 1
+unit = "%"
+
+[wgsl]
+entry = "effect.wgsl"
+
+[card]
+params = { green_sat = 60, blue_hue = -40, blue_sat = 40 }

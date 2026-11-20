@@ -100,7 +100,28 @@ jobs:
       - name: Tests of the new engine pieces
         shell: bash
         working-directory: src
-        run: cargo test --profile quick -p concat-vision -p concat-text --lib 2>&1 | tail -40
+        run: cargo test --profile quick -p concat-vision -p concat-text -p concat-effects --lib 2>&1 | tail -60
+
+      - name: The HSL package, run through the GPU
+        shell: bash
+        run: |
+          set +e
+          cli=src/target/quick/concat-cli
+          check=$($cli check src/crates/concat-effects/packages/concat.hsl 2>&1)
+          code=$?
+          listed=$(echo '{"method":"catalogue.list","kind":"effect"}' | $cli api | python3 scripts/ci/find-effect.py concat.hsl)
+          {
+            echo '### concat.hsl: check (shader, fixtures, probes)'
+            echo "exit $code"
+            echo '```'
+            echo "$check" | tail -30
+            echo '```'
+            echo '### concat.hsl in the catalogue'
+            echo '```'
+            echo "$listed"
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          exit $code
 
       - name: Scene, colour and track on a clip made here
         shell: bash

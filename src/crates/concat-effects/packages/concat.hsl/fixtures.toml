@@ -1,0 +1,34 @@
+# Every knob at zero is the picture as it came, a colour, a grey and a
+# highlight past white alike.
+[[probe]]
+name = "default, a colour"
+input = [0.4, 0.2, 0.1, 1]
+expect = [0.4, 0.2, 0.1, 1]
+
+[[probe]]
+name = "default, a highlight past white"
+input = [4, 1, 0.05, 1]
+expect = [4, 1, 0.05, 1]
+
+# A band touches its own hues alone: the reds pulled grey leave a green as it
+# was.
+[[probe]]
+name = "red saturation out, a green"
+params = { red_sat = -100 }
+input = [0.1, 0.8, 0.1, 1]
+expect = [0.1, 0.8, 0.1, 1]
+
+# And a grey belongs to no band, so the strongest push on every band leaves it.
+[[probe]]
+name = "every band's saturation up, a grey"
+params = { red_sat = 100, orange_sat = 100, yellow_sat = 100, green_sat = 100, cyan_sat = 100, blue_sat = 100, purple_sat = 100, magenta_sat = 100 }
+input = [0.18, 0.18, 0.18, 1]
+expect = [0.18, 0.18, 0.18, 1]
+
+# The greens pulled to none turn a green to the grey of its own luminance:
+# 0.2126 * 0.1 + 0.7152 * 0.8 + 0.0722 * 0.1.
+[[probe]]
+name = "green saturation out, a green"
+params = { green_sat = -100 }
+input = [0.1, 0.8, 0.1, 1]
+expect = [0.60064, 0.60064, 0.60064, 1]
