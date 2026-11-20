@@ -221,6 +221,12 @@ jobs:
         run: |
           set +e
           sudo apt-get install -y espeak-ng > /dev/null
+          # The speech crate links sherpa-onnx's prebuilt static library, as ci.yml has it.
+          version=$(grep -A1 'name = "sherpa-onnx-sys"' Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
+          stem="sherpa-onnx-v$version-linux-x64-static-lib"
+          ( cd .. && scripts/ci/fetch.sh sherpa-onnx-linux-x64-static-lib sherpa.tar.bz2 && mkdir -p sherpa && tar -xjf sherpa.tar.bz2 -C sherpa )
+          export SHERPA_ONNX_LIB_DIR="$PWD/../sherpa/$stem/lib"
+          ls "$SHERPA_ONNX_LIB_DIR" | head -3
           mkdir -p ../out
           espeak-ng -v en-us -s 130 -w ../out/speech.wav "Hello world. This is a test of the local transcriber."
           export LD_LIBRARY_PATH="$PWD/../stage/lib:$LD_LIBRARY_PATH"
