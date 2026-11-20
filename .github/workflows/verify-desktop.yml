@@ -158,13 +158,8 @@ jobs:
           rm -rf "$here/out/demo"
           python3 scripts/ci/make-demo-project.py "$here/src/target/quick/concat-cli" \
             "$here/out" "$here/out/shots.mp4" "$here/out/moving.mp4" | tee out/api.log | cut -c1-200
-          xvfb-run -a -s "-screen 0 1600x900x24" bash -c '
-            src/target/quick/concat --project "'"$here"'/out/demo" > out/editor.log 2>&1 &
-            pid=$!
-            sleep 30
-            import -window root out/editor.png || true
-            kill $pid 2>/dev/null || true
-          '
+          bash scripts/ci/drive-editor.sh "$here/src/target/quick/concat" \
+            "$here/out/demo" "$here/out"
           ls -la out
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
