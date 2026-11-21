@@ -1326,6 +1326,7 @@ export component VideoPanel inherits VerticalLayout {
 
             Param {
                 label: I18n.t("common.scale");
+                rail: true;
                 keyable: true;
                 field: ClipField.scale;
                 value <=> root.scale;
@@ -1467,6 +1468,7 @@ export component VideoPanel inherits VerticalLayout {
         if blend.open: SectionBody {
             Param {
                 label: I18n.t("common.opacity");
+                rail: true;
                 keyable: true;
                 field: ClipField.opacity;
                 value <=> root.alpha;

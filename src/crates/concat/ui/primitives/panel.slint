@@ -98,7 +98,7 @@ export component SectionHeader inherits Rectangle {
     // labelled drawers rather than one long form - the same lift a dialog's
     // collapsible group has, and the same answer to the pointer when the
     // header is one that opens.
-    background: root.collapsible && head.has-hover ? Theme.field : Theme.raised;
+    background: root.collapsible && head.has-hover ? Theme.field : Colors.transparent;
 
     animate background { duration: 100ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
 
