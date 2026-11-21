@@ -88,6 +88,9 @@ export component Seat inherits Rectangle {
             width: root.width;
             height: root.height;
 
+            captions-open: Editor.captions-open;
+            captions => { Editor.captions(); }
+
             pane-picked(kind) => { root.picked(kind); }
             pane-seat: root.index;
             pane-removable: Editor.seats.length > 1;

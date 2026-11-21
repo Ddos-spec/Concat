@@ -1718,6 +1718,10 @@ component Empty inherits VerticalLayout {
 }
 
 export component MediaPane inherits Rectangle {
+    /// The Captions page of the strip: the card it opens lives in the window,
+    /// so the pane only says it was pressed and whether the card is up.
+    in property <bool> captions-open;
+    callback captions();
     /// The bin, already narrowed to `filter`. Filtering happens on the Rust
     /// side because a Slint model cannot be filtered in the language, and
     /// filtering inside the `for` would leave holes in the grid's indices.
@@ -1984,6 +1988,15 @@ export component MediaPane inherits Rectangle {
                             label: I18n.t("common.effects");
                             current: root.tab == 4;
                             clicked => { root.tab = 4; }
+                        }
+                        // CapCut's Captions page, between Effects and
+                        // Filters. It opens the captions card, which is
+                        // where the work is, rather than a page of its own.
+                        LibraryTab {
+                            glyph: Glyph.mic;
+                            label: I18n.t("captions.captions");
+                            current: root.captions-open;
+                            clicked => { root.captions(); }
                         }
                         LibraryTab {
                             glyph: Glyph.filter;
