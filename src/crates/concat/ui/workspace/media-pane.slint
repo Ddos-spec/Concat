@@ -261,11 +261,13 @@ component CategoryRow inherits Rectangle {
 
     callback clicked();
 
-    height: 24px;
+    height: 28px;
     border-radius: Theme.r-sm;
+    // A boxed button at rest, as CapCut's sidebar draws them; the current one
+    // goes a step lighter and takes the accent for its word.
     background: root.current ? Theme.field-active
-        : touch.has-hover ? Theme.field
-        : Colors.transparent;
+        : touch.has-hover ? Theme.field-hover
+        : Theme.field;
 
     animate background { duration: 100ms; easing: cubic-bezier(0.4, 0, 0.2, 1); }
 
