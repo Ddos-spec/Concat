@@ -18,6 +18,9 @@ export component SectionTabs inherits Rectangle {
     /// A glyph per option, in the same order, worn before its word.
     in property <[Glyph]> icons;
     in-out property <int> current;
+    /// The bar under the open section. Off where the strip is the page's own
+    /// header, as CapCut's Video / Audio / Speed row is: the word alone lights.
+    in property <bool> bar: true;
 
     callback changed(index: int);
 
@@ -113,7 +116,7 @@ export component SectionTabs inherits Rectangle {
     }
 
     // The open section's bar, sitting on the strip's bottom hairline.
-    Rectangle {
+    if root.bar: Rectangle {
         x: root.current * root.seg-w + 12px;
         y: root.height - 2px;
         width: root.seg-w - 24px;

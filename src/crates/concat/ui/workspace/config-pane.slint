@@ -637,10 +637,12 @@ export component ConfigPane inherits Rectangle {
                     overflow: elide;
                 }
 
+                // Flat words with the open one lit, CapCut's Video / Audio /
+                // Speed row; the sections below are the boxed control.
                 if !root.single: VerticalLayout {
-                    alignment: center;
-                    SegmentedControl {
+                    SectionTabs {
                         options: root.tabs-shown;
+                        bar: false;
                         current <=> root.tab;
                     }
                 }
@@ -678,9 +680,8 @@ export component ConfigPane inherits Rectangle {
                 padding-left: 4px;
                 padding-right: 4px;
                 VerticalLayout {
-                    SectionTabs {
+                    SegmentedControl {
                         options: root.sections-shown;
-                        icons: root.section-icons;
                         // A press on a segment assigns `current` inside the
                         // control, which ends a plain binding here: the
                         // highlight then stayed where it was pressed while
