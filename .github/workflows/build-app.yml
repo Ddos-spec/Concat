@@ -461,11 +461,15 @@ jobs:
           if ($lib) {
             Copy-Item $lib.FullName "$dir\lib\onnxruntime.lib"
           } else {
-            $exports = dumpbin /exports "$dir\lib\onnxruntime.dll" | ForEach-Object {
+            $dumpbin = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -find "VC\Tools\MSVC\**\bin\Host*\*\dumpbin.exe" | Select-Object -First 1
+            if (-not $dumpbin) { throw "dumpbin.exe not found via vswhere" }
+            $libExe = Join-Path (Split-Path $dumpbin) "lib.exe"
+            if (-not (Test-Path $libExe)) { throw "lib.exe not found next to $dumpbin" }
+            $exports = & $dumpbin /exports "$dir\lib\onnxruntime.dll" | ForEach-Object {
               if ($_ -match '^\s*\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)') { $Matches[1] }
             }
             @("LIBRARY onnxruntime", "EXPORTS") + $exports | Set-Content "$dir\lib\onnxruntime.def" -Encoding Ascii
-            lib /def:"$dir\lib\onnxruntime.def" /out:"$dir\lib\onnxruntime.lib" /machine:$arch
+            & $libExe /def:"$dir\lib\onnxruntime.def" /out:"$dir\lib\onnxruntime.lib" /machine:$arch
             if ($LASTEXITCODE -ne 0) { throw "failed to generate onnxruntime.lib" }
           }
           if (-not (Test-Path "$dir\lib\onnxruntime.lib")) { throw "$dir\lib\onnxruntime.lib is not there" }

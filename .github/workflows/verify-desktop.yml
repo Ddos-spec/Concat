@@ -318,3 +318,194 @@ jobs:
             out/shots.mp4
             src/build.log
           if-no-files-found: ignore
+
+  verify-windows:
+    runs-on: windows-2022
+    timeout-minutes: 90
+    env:
+      CARGO_TERM_COLOR: always
+      ORT_VERSION: 1.28.0
+      GGML_NATIVE: "OFF"
+      GGML_BACKEND_DL: "ON"
+      GGML_CPU_ALL_VARIANTS: "ON"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: The pinned toolchain
+        id: toolchain
+        shell: bash
+        run: echo "channel=$(sed -n 's/^channel = "\(.*\)"/\1/p' src/rust-toolchain.toml)" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master (v1), 2026-10-09
+        with:
+          toolchain: ${{ steps.toolchain.outputs.channel }}
+
+      - name: FFmpeg development libraries and LLVM (Windows)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $bash = "$env:ProgramFiles\Git\bin\bash.exe"
+          & $bash scripts/ci/fetch.sh "llvm-win64" llvm.exe
+          if ($LASTEXITCODE -ne 0) { throw "the LLVM download failed" }
+          Start-Process -Wait -FilePath .\llvm.exe -ArgumentList "/S", "/D=C:\llvm"
+          if (-not (Test-Path C:\llvm\bin\libclang.dll)) { throw "LLVM did not install to C:\llvm" }
+          Remove-Item llvm.exe -ErrorAction SilentlyContinue
+          "C:\llvm\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          "LIBCLANG_PATH=C:\llvm\bin" | Out-File -FilePath $env:GITHUB_ENV -Append
+          & $bash scripts/ci/fetch.sh "ffmpeg-win64" ffmpeg-win.zip
+          if ($LASTEXITCODE -ne 0) { throw "the FFmpeg download failed" }
+          Expand-Archive ffmpeg-win.zip -DestinationPath ffdl
+          $dir = (Get-ChildItem ffdl -Directory | Select-Object -First 1).FullName
+          "FFMPEG_DIR=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "$dir\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: ONNX Runtime (Windows)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          pip download "onnxruntime==$env:ORT_VERSION" --no-deps --only-binary=:all: `
+            --platform win_amd64 --python-version 3.12 -d ort-wheel
+          if ($LASTEXITCODE -ne 0) { throw "the ONNX Runtime wheel download failed" }
+          $whl = Get-ChildItem ort-wheel\*.whl | Select-Object -First 1
+          Expand-Archive $whl.FullName -DestinationPath ort-unpacked -Force
+          $dir = "$PWD\onnxruntime-win-x64-$env:ORT_VERSION"
+          New-Item -ItemType Directory -Force -Path "$dir\lib" | Out-Null
+          $dll = Get-ChildItem ort-unpacked -Recurse -Filter "onnxruntime.dll" | Select-Object -First 1
+          if (-not $dll) { throw "onnxruntime.dll not found in wheel" }
+          Copy-Item $dll.FullName "$dir\lib\onnxruntime.dll"
+          $lib = Get-ChildItem ort-unpacked -Recurse -Filter "onnxruntime.lib" | Select-Object -First 1
+          if ($lib) {
+            Copy-Item $lib.FullName "$dir\lib\onnxruntime.lib"
+          } else {
+            $dumpbin = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -find "VC\Tools\MSVC\**\bin\Host*\*\dumpbin.exe" | Select-Object -First 1
+            if (-not $dumpbin) { throw "dumpbin.exe not found via vswhere" }
+            $libExe = Join-Path (Split-Path $dumpbin) "lib.exe"
+            if (-not (Test-Path $libExe)) { throw "lib.exe not found next to $dumpbin" }
+            $exports = & $dumpbin /exports "$dir\lib\onnxruntime.dll" | ForEach-Object {
+              if ($_ -match '^\s*\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)') { $Matches[1] }
+            }
+            @("LIBRARY onnxruntime", "EXPORTS") + $exports | Set-Content "$dir\lib\onnxruntime.def" -Encoding Ascii
+            & $libExe /def:"$dir\lib\onnxruntime.def" /out:"$dir\lib\onnxruntime.lib" /machine:x64
+            if ($LASTEXITCODE -ne 0) { throw "failed to generate onnxruntime.lib" }
+          }
+          "ORT_LIB_LOCATION=$dir\lib" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "ORT_PREFER_DYNAMIC_LINK=1" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "ORT_DIR=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "$dir\lib" | Out-File -FilePath $env:GITHUB_PATH -Append
+
+      - name: sherpa-onnx shared libraries (Windows)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = (Select-String -Path src\Cargo.lock -Pattern 'name = "sherpa-onnx-sys"' -Context 0,1).Context.PostContext[0] -replace '.*"(.*)".*', '$1'
+          $name = "sherpa-onnx-win-x64-shared-MT-Release-lib"
+          $stem = "sherpa-onnx-v$version-win-x64-shared-MT-Release-lib"
+          $bash = "$env:ProgramFiles\Git\bin\bash.exe"
+          & $bash scripts/ci/fetch.sh $name sherpa.tar.bz2
+          if ($LASTEXITCODE -ne 0) { throw "the sherpa-onnx download failed" }
+          python -c "import tarfile; t = tarfile.open('sherpa.tar.bz2'); t.extractall(**({'filter': 'data'} if hasattr(tarfile, 'data_filter') else {}))"
+          New-Item -ItemType Directory -Force sherpa-libs, sherpa-dlls | Out-Null
+          Copy-Item "$stem\lib\sherpa-onnx-*.lib" sherpa-libs\
+          Copy-Item "$stem\lib\sherpa-onnx-*.dll" sherpa-dlls\
+          "SHERPA_ONNX_LIB_DIR=$PWD\sherpa-libs" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "SHERPA_DLL_DIR=$PWD\sherpa-dlls" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: src
+          key: verify-win-quick
+          env-vars: CARGO CC CFLAGS CXX CMAKE RUST GGML ORT
+
+      - name: Build Windows concat and concat-cli (quick)
+        shell: bash
+        working-directory: src
+        run: |
+          set -o pipefail
+          cargo build --profile quick -p concat 2>&1 | tee win-build.log
+          cargo build --profile quick -p concat-cli --features pair 2>&1 | tee -a win-build.log
+
+      - name: Stage and smoke-test Windows binaries
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Force out-win, out-win-test | Out-Null
+          Copy-Item "src\target\quick\concat.exe" out-win\
+          Copy-Item "src\target\quick\concat-cli.exe" out-win\
+          Copy-Item "$env:FFMPEG_DIR\bin\*.dll" out-win\
+          Copy-Item "$env:SHERPA_DLL_DIR\*.dll" out-win\
+          Copy-Item "$env:ORT_DIR\lib\onnxruntime.dll" out-win\
+          $built = Get-ChildItem "src\target\quick\build\whisper-rs-sys-*\out\bin\ggml-cpu-x64.dll" -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+          if ($built) {
+            Copy-Item "$($built.DirectoryName)\whisper.dll" out-win\ -ErrorAction SilentlyContinue
+            Copy-Item "$($built.DirectoryName)\ggml*.dll" out-win\ -ErrorAction SilentlyContinue
+          }
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          $crt = Get-ChildItem "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC14*.CRT" -Directory |
+            Sort-Object FullName -Descending | Select-Object -First 1
+          $dumpbin = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -find "VC\Tools\MSVC\**\bin\Host*\*\dumpbin.exe" | Select-Object -First 1
+          if ($crt -and $dumpbin) {
+            foreach ($pass in 1, 2) {
+              foreach ($pe in Get-ChildItem out-win -File -Include *.exe, *.dll) {
+                foreach ($line in & $dumpbin /nologo /dependents $pe.FullName) {
+                  $dll = $line.Trim()
+                  if ($dll -match "\.dll$" -and (Test-Path "$($crt.FullName)\$dll") -and -not (Test-Path "out-win\$dll")) {
+                    Copy-Item "$($crt.FullName)\$dll" out-win\
+                  }
+                }
+              }
+            }
+          }
+          .\out-win\concat.exe --version
+          .\out-win\concat.exe --smoke
+          .\out-win\concat-cli.exe --version
+          & "$env:FFMPEG_DIR\bin\ffmpeg.exe" -v error -y `
+            -f lavfi -i "color=c=red:s=320x180:r=30:d=1.5" `
+            -f lavfi -i "color=c=green:s=320x180:r=30:d=1.5" `
+            -filter_complex "[0][1]concat=n=2:v=1:a=0" out-win-test\shots.mp4
+          @'
+          import json, os, subprocess
+          cli = os.path.abspath("out-win/concat-cli.exe")
+          work = os.path.abspath("out-win-test")
+          proj = os.path.join(work, "proj")
+          shots = os.path.join(work, "shots.mp4")
+          export_mp4 = os.path.join(work, "win-export.mp4")
+          proc = subprocess.Popen([cli, "api"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+          def call(req):
+              proc.stdin.write(json.dumps(req) + "\n")
+              proc.stdin.flush()
+              while True:
+                  line = proc.stdout.readline()
+                  if not line:
+                      raise RuntimeError("api closed early")
+                  msg = json.loads(line)
+                  if "result" in msg or "error" in msg:
+                      if msg.get("error"):
+                          raise RuntimeError(f"{req['method']} error: {msg['error']}")
+                      return msg.get("result", {})
+          call({"method": "project.create", "location": work, "name": "proj"})
+          call({"method": "media.import", "path": proj, "file": shots})
+          added = call({"method": "edit.apply", "path": proj, "command": {"op": "addClipAtFirstFree", "mediaId": "m1", "start": 0}})
+          cid = added.get("createdId") or "c3"
+          call({"method": "edit.apply", "path": proj, "command": {"op": "updateClip", "clipId": cid, "patch": {"videoEffects": [{"id": "concat.hsl", "params": {"green_sat": -80.0}, "enabled": True}]}}})
+          call({"method": "edit.apply", "path": proj, "command": {"op": "addTextClip", "above": True, "start": 0, "duration": 2.0, "style": {"content": "Concat Win E2E"}}})
+          call({"method": "project.save", "path": proj})
+          call({"method": "export.run", "path": proj, "output": export_mp4})
+          proc.stdin.close()
+          rest = proc.stdout.read()
+          print(rest[-2000:])
+          assert proc.wait(timeout=180) == 0
+          assert os.path.isfile(export_mp4) and os.path.getsize(export_mp4) > 1000, "export missing or empty"
+          print("WIN_EXPORT_BYTES:", os.path.getsize(export_mp4))
+          '@ | python -
+          & "$env:FFMPEG_DIR\bin\ffprobe.exe" -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 out-win-test\win-export.mp4
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: concat-windows-x64
+          retention-days: 7
+          path: |
+            out-win/
+            out-win-test/win-export.mp4
+            src/win-build.log
+          if-no-files-found: ignore
