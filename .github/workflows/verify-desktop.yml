@@ -326,8 +326,12 @@ jobs:
       CARGO_TERM_COLOR: always
       ORT_VERSION: 1.28.0
       GGML_NATIVE: "OFF"
-      GGML_BACKEND_DL: "ON"
-      GGML_CPU_ALL_VARIANTS: "ON"
+      GGML_BACKEND_DL: "OFF"
+      GGML_CPU_ALL_VARIANTS: "OFF"
+      GGML_AVX2: "OFF"
+      GGML_FMA: "OFF"
+      GGML_F16C: "OFF"
+      GGML_BMI2: "OFF"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
