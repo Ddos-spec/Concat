@@ -23,6 +23,9 @@ def main() -> int:
         {"method": "edit.apply", "path": project,
          "command": {"op": "addClipAtFirstFree", "mediaId": "m2", "start": 6}},
         {"method": "edit.apply", "path": project,
+         "command": {"op": "updateClip", "clipId": "c2",
+                     "patch": {"videoEffects": [{"id": "concat.hsl", "params": {"green_sat": -50.0}, "enabled": True}]}}},
+        {"method": "edit.apply", "path": project,
          "command": {"op": "addTextClip", "above": True, "start": 0, "duration": 6,
                      "style": {"content": "one two three four five six",
                    "spoken": [

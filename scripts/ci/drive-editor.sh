@@ -45,6 +45,8 @@ xvfb-run -a -s "-screen 0 1600x900x24" bash -c '
   xdotool mousemove 1340 112 click 1; sleep 2; shot 04-adjust-panel
   menu 347 761 759 follow
   sleep 12; shot 05-after-follow
+  xdotool mousemove 347 845 click 1; sleep 1
+  xdotool mousemove 1330 68 click 1; sleep 2; shot 07-hsl-inspector
   xdotool key ctrl+s; sleep 4; shot 06-saved
   kill $pid 2>/dev/null || true
 ' _ "$concat" "$project" "$out"

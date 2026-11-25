@@ -279,12 +279,18 @@ jobs:
         run: |
           set -euo pipefail
           stem="onnxruntime-linux-${{ matrix.ort }}-$ORT_VERSION"
-          scripts/ci/fetch.sh "onnxruntime-linux-${{ matrix.ort }}" onnxruntime.tgz
-          tar -xzf onnxruntime.tgz
-          test -f "$stem/lib/libonnxruntime.so.$ORT_VERSION"
+          plat="${{ matrix.ort == 'x64' && 'manylinux_2_28_x86_64' || 'manylinux_2_28_aarch64' }}"
+          pip download "onnxruntime==$ORT_VERSION" --no-deps --only-binary=:all: \
+            --platform "$plat" --python-version 3.12 -d ort-wheel
+          mkdir -p "$stem/lib" ort-unpacked
+          unzip -q ort-wheel/*.whl -d ort-unpacked
+          lib=$(find ort-unpacked -name "libonnxruntime.so.$ORT_VERSION" | head -1)
+          test -n "$lib"
+          cp "$lib" "$stem/lib/"
           # The tarball carries the soname and the full version; the linker
           # asks for the bare name.
           ln -sf "libonnxruntime.so.$ORT_VERSION" "$stem/lib/libonnxruntime.so"
+          ln -sf "libonnxruntime.so.$ORT_VERSION" "$stem/lib/libonnxruntime.so.1"
           {
             echo "ORT_LIB_LOCATION=$PWD/$stem/lib"
             echo "ORT_PREFER_DYNAMIC_LINK=1"
@@ -439,10 +445,29 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          & "$env:ProgramFiles\Git\bin\bash.exe" scripts/ci/fetch.sh "onnxruntime-${{ matrix.ort }}" onnxruntime.zip
-          if ($LASTEXITCODE -ne 0) { throw "the ONNX Runtime download failed" }
-          Expand-Archive onnxruntime.zip -DestinationPath .
+          $plat = if ("${{ matrix.ort }}" -eq "win-x64") { "win_amd64" } else { "win_arm64" }
+          $arch = if ("${{ matrix.ort }}" -eq "win-x64") { "x64" } else { "ARM64" }
+          pip download "onnxruntime==$env:ORT_VERSION" --no-deps --only-binary=:all: `
+            --platform $plat --python-version 3.12 -d ort-wheel
+          if ($LASTEXITCODE -ne 0) { throw "the ONNX Runtime wheel download failed" }
+          $whl = Get-ChildItem ort-wheel\*.whl | Select-Object -First 1
+          Expand-Archive $whl.FullName -DestinationPath ort-unpacked -Force
           $dir = "$PWD\onnxruntime-${{ matrix.ort }}-$env:ORT_VERSION"
+          New-Item -ItemType Directory -Force -Path "$dir\lib" | Out-Null
+          $dll = Get-ChildItem ort-unpacked -Recurse -Filter "onnxruntime.dll" | Select-Object -First 1
+          if (-not $dll) { throw "onnxruntime.dll not found in wheel" }
+          Copy-Item $dll.FullName "$dir\lib\onnxruntime.dll"
+          $lib = Get-ChildItem ort-unpacked -Recurse -Filter "onnxruntime.lib" | Select-Object -First 1
+          if ($lib) {
+            Copy-Item $lib.FullName "$dir\lib\onnxruntime.lib"
+          } else {
+            $exports = dumpbin /exports "$dir\lib\onnxruntime.dll" | ForEach-Object {
+              if ($_ -match '^\s*\d+\s+[0-9A-Fa-f]+\s+[0-9A-Fa-f]+\s+(\S+)') { $Matches[1] }
+            }
+            @("LIBRARY onnxruntime", "EXPORTS") + $exports | Set-Content "$dir\lib\onnxruntime.def" -Encoding Ascii
+            lib /def:"$dir\lib\onnxruntime.def" /out:"$dir\lib\onnxruntime.lib" /machine:$arch
+            if ($LASTEXITCODE -ne 0) { throw "failed to generate onnxruntime.lib" }
+          }
           if (-not (Test-Path "$dir\lib\onnxruntime.lib")) { throw "$dir\lib\onnxruntime.lib is not there" }
           if (-not (Test-Path "$dir\lib\onnxruntime.dll")) { throw "$dir\lib\onnxruntime.dll is not there" }
           "ORT_LIB_LOCATION=$dir\lib" | Out-File -FilePath $env:GITHUB_ENV -Append

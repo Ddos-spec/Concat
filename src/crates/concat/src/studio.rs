@@ -1956,7 +1956,7 @@ fn chain_rows(chain: &[AppliedFilter]) -> (Vec<AppliedEntryData>, Vec<AppliedPar
                 entry: index as i32,
                 key: param.key.as_str().into(),
                 label: param.label.as_str().into(),
-                group: "".into(),
+                group: param.group.as_str().into(),
                 unit: param.unit.as_str().into(),
                 min: param.min as f32,
                 max: param.max as f32,

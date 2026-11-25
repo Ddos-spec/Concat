@@ -437,29 +437,37 @@ export component PresetStack inherits VerticalLayout {
                     // so the row re-seeds it whenever Rust republishes the
                     // parameter — a new clip, an undo — and the control
                     // never shows a number that is not the document's.
-                    for p in root.params: Rectangle {
-                            property <AppliedParamData> data: p;
-                            visible: link.open && p.entry == index;
-                            height: link.open && p.entry == index ? knob.preferred-height : 0;
-                            opacity: item.on ? 1.0 : 0.5;
-                            changed data => { knob.value = self.data.value; }
+                    for p[i] in root.params: VerticalLayout {
+                            spacing: Theme.gap;
 
-                            knob := Param {
-                                // A slider and the number, rather than the
-                                // number alone: an effect is dialled by eye.
-                                rail: true;
-                                label: p.label;
-                                value: p.value;
-                                minimum: p.min;
-                                maximum: p.max;
-                                step: p.step;
-                                default-value: p.default-value;
-                                fmt: p.fmt;
-                                unit: p.unit;
-                                enabled: item.on;
-                                changed(v) => {
-                                    root.set-param(index, p.key, v);
-                                    root.commit();
+                            if link.open && p.entry == index && p.group != "" && (i == 0 || root.params[i - 1].entry != p.entry || root.params[i - 1].group != p.group): Subhead {
+                                title: p.group;
+                            }
+
+                            Rectangle {
+                                property <AppliedParamData> data: p;
+                                visible: link.open && p.entry == index;
+                                height: link.open && p.entry == index ? knob.preferred-height : 0;
+                                opacity: item.on ? 1.0 : 0.5;
+                                changed data => { knob.value = self.data.value; }
+
+                                knob := Param {
+                                    // A slider and the number, rather than the
+                                    // number alone: an effect is dialled by eye.
+                                    rail: true;
+                                    label: p.label;
+                                    value: p.value;
+                                    minimum: p.min;
+                                    maximum: p.max;
+                                    step: p.step;
+                                    default-value: p.default-value;
+                                    fmt: p.fmt;
+                                    unit: p.unit;
+                                    enabled: item.on;
+                                    changed(v) => {
+                                        root.set-param(index, p.key, v);
+                                        root.commit();
+                                    }
                                 }
                             }
                         }
