@@ -102,6 +102,14 @@ export struct SettingsData {
     server-state: int,
     /// the address is this computer's alone (loopback): no warning
     server-local: bool,
+    /// Built-in Wi-Fi phone QR pairing state (Automation tab & File -> Receive from phone).
+    pairing-active: bool,
+    pairing-url: string,
+    pairing-inbox: string,
+    pairing-status: string,
+    /// 0 off, 1 active, 2 error
+    pairing-state: int,
+    pairing-qr: image,
     /// "3 installed · 612 MB on disk"
     disk: string,
     version: string,
@@ -672,6 +680,8 @@ export component SettingsDialog inherits Modal {
     callback server-token-edited(text: string);
     /// A fresh random token, in place of whatever is there.
     callback server-token-generated();
+    callback phone-pairing-changed(on: bool);
+    callback open-pairing-inbox();
     /// the Version page: look for the releases, pick one, put it in place
     callback check-updates();
     callback version-chosen(index: int);
@@ -755,6 +765,7 @@ export component SettingsDialog inherits Modal {
     /// Copy was pressed a moment ago: its mark is a tick for a second
     /// and a half, so the press is seen to have worked.
     property <bool> token-copied;
+    property <bool> pair-copied;
     changed open => {
         if (!root.open) {
             root.token-shown = false;
@@ -1480,6 +1491,89 @@ export component SettingsDialog inherits Modal {
                             interval: 1500ms;
                             running: root.token-copied;
                             triggered => { root.token-copied = false; }
+                        }
+                    }
+                }
+
+                DialogSection {
+                    title: "Phone pairing (Wi-Fi QR)";
+                    hint: "On Android Concat: Saya -> Editor desktop -> Pindai QR desktop (same Wi-Fi).";
+                    switchable: true;
+                    on: root.data.pairing-active;
+                    switched(on) => { root.phone-pairing-changed(on); }
+
+                    Text {
+                        text: root.data.pairing-status;
+                        color: root.data.pairing-state == 2 ? Theme.danger : Theme.fg-muted;
+                        font-size: Theme.fs-sm;
+                        wrap: word-wrap;
+                    }
+
+                    if root.data.pairing-active && root.data.pairing-url != "": VerticalLayout {
+                        spacing: 10px;
+
+                        HorizontalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 176px;
+                                height: 176px;
+                                border-radius: Theme.r;
+                                background: #ffffff;
+
+                                Image {
+                                    x: 8px;
+                                    y: 8px;
+                                    width: parent.width - 16px;
+                                    height: parent.height - 16px;
+                                    source: root.data.pairing-qr;
+                                    image-fit: contain;
+                                    image-rendering: pixelated;
+                                }
+                            }
+                        }
+
+                        HorizontalLayout {
+                            spacing: 6px;
+
+                            Field {
+                                value: root.data.pairing-url;
+                                placeholder: "";
+                                technical: true;
+                            }
+
+                            Button {
+                                square: true;
+                                glyph: root.pair-copied ? Glyph.check : Glyph.copy;
+                                label: "Copy pairing link";
+                                clicked => {
+                                    pair-url-copy.select-all();
+                                    pair-url-copy.copy();
+                                    root.pair-copied = true;
+                                }
+                            }
+
+                            Button {
+                                glyph: Glyph.import;
+                                label: "Open Inbox";
+                                enabled: root.data.pairing-inbox != "";
+                                clicked => { root.open-pairing-inbox(); }
+                            }
+                        }
+
+                        pair-url-copy := TextInput {
+                            x: 0;
+                            y: 0;
+                            width: 1px;
+                            height: 1px;
+                            opacity: 0;
+                            text: root.data.pairing-url;
+                            read-only: true;
+                        }
+
+                        Timer {
+                            interval: 1500ms;
+                            running: root.pair-copied;
+                            triggered => { root.pair-copied = false; }
                         }
                     }
                 }

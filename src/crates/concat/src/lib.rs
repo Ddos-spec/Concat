@@ -2112,6 +2112,12 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
     app.on_settings_server_token_generated(on_window!(|state| {
         state.handle(Msg::Settings(SettingsMsg::ServerTokenGenerated));
     }));
+    app.on_settings_phone_pairing_changed(on_window!(|state, on: bool| {
+        state.handle(Msg::Settings(SettingsMsg::PhonePairingChanged(on)));
+    }));
+    app.on_settings_open_pairing_inbox(on_window!(|state| {
+        state.handle(Msg::Settings(SettingsMsg::OpenInboxFolder));
+    }));
     app.on_settings_check_updates(on_window!(|state| {
         state.handle(Msg::Settings(SettingsMsg::CheckUpdates));
     }));
@@ -2311,6 +2317,7 @@ fn start(project: Option<std::path::PathBuf>, smoke: bool) -> Result<(), slint::
                         "template" => state.save_template(),
                         "speech" => state.handle(Msg::Speech(SpeechMsg::Open)),
                         "clear-cache" => state.clear_project_cache(),
+                        "phone-pair" => state.handle(Msg::Settings(SettingsMsg::OpenPhonePairing)),
                         "settings" => state.handle(Msg::Settings(SettingsMsg::Open)),
                         "close-project" => {
                             // Back to the launch screen, not out of the

@@ -57,6 +57,9 @@ pub struct Host {
     /// from opening; the export slot is shared, so one export at a time
     /// holds across the two.
     pub server: Option<concat_server::Server>,
+    /// TLS pairing door for receiving projects pushed from the Concat Android app.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    pub pairing: Option<concat_server::pair::Pairing>,
     /// Which project folders are open, here or over the socket.
     pub open_projects: concat_api::OpenProjects,
 }
@@ -86,6 +89,8 @@ impl Host {
             transcriber: Arc::new(Transcriber::new()),
             speech: Arc::new(Speech::new()),
             server: None,
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
+            pairing: None,
             open_projects: concat_api::OpenProjects::default(),
         })
     }

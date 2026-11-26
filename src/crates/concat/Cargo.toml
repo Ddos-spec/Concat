@@ -72,6 +72,9 @@ slint = { version = "1.18", default-features = false, features = [
 rfd = "0.17"
 # Reveal an exported file in the platform's file manager.
 opener = { version = "0.8", features = ["reveal"] }
+# QR code generation for desktop -> phone pairing over local Wi-Fi.
+qrcode = { version = "0.14", default-features = false }
+concat-server = { workspace = true, features = ["pair"] }
 
 # Native Wayland file drops; see wayland_drop.rs. winit 0.30 reports a
 # dropped file on X11 and not on Wayland, so the window listens for one

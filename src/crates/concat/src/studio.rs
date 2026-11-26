@@ -12616,6 +12616,13 @@ impl Studio {
                     true,
                 ),
                 row(
+                    "phone-pair",
+                    "Receive from phone (QR)...".to_owned(),
+                    Glyph::Slot,
+                    "",
+                    true,
+                ),
+                row(
                     "save",
                     t("studio.save"),
                     Glyph::Import,

@@ -71,6 +71,12 @@ pub enum SettingsMsg {
     ServerPortEdited(i32),
     ServerTokenEdited(String),
     ServerTokenGenerated,
+    /// Open Settings directly on the Automation page and start Wi-Fi QR phone pairing.
+    OpenPhonePairing,
+    /// Turn local Wi-Fi QR phone pairing on or off.
+    PhonePairingChanged(bool),
+    /// Open the Desktop Inbox folder where phone-pushed projects land.
+    OpenInboxFolder,
     /// Make this the model the engine uses.
     ModelActivated(String),
     ModelDownload(String),
@@ -121,6 +127,8 @@ pub enum SettingsMsg {
     },
 }
 
+/// The Automation page's index (Phone QR pairing + API server).
+const AUTOMATION_PAGE: i32 = 4;
 /// The Version page's index in the column of pages.
 const VERSION_PAGE: i32 = 6;
 /// The Shortcuts page's index, which the launch screen's Keyboard
@@ -243,6 +251,16 @@ pub struct SettingsPane {
     /// Why the server is not running when the switch is on: the bind that
     /// failed. Empty while it runs, or is off.
     pub server_error: String,
+    /// Whether built-in Wi-Fi QR phone pairing is currently active.
+    pub pairing_active: bool,
+    /// `concat://pair?...` URL encoded into the displayed QR code.
+    pub pairing_url: String,
+    /// Local inbox folder where phone-pushed projects land.
+    pub pairing_inbox: String,
+    /// Last error starting phone pairing, if any.
+    pub pairing_error: String,
+    /// Rasterized QR image rendered for Settings -> Automation.
+    pub pairing_qr: slint::Image,
     /// The transcriber models, installed or not.
     pub transcribers: Vec<ModelState>,
     /// The voice models, installed or not.
@@ -427,6 +445,26 @@ impl SettingsPane {
                 studio.prefs.server.token = new_token();
                 studio.prefs.save(&studio.host.dirs);
                 self.apply_server(studio);
+            }
+            SettingsMsg::OpenPhonePairing => {
+                self.refresh(studio);
+                self.tab = AUTOMATION_PAGE;
+                self.open = true;
+                self.apply_pairing(studio, true);
+            }
+            SettingsMsg::PhonePairingChanged(on) => {
+                self.apply_pairing(studio, on);
+            }
+            SettingsMsg::OpenInboxFolder => {
+                let target = if !self.pairing_inbox.is_empty() {
+                    std::path::PathBuf::from(&self.pairing_inbox)
+                } else {
+                    Self::default_pairing_inbox()
+                };
+                let _ = std::fs::create_dir_all(&target);
+                if let Err(err) = platform::open_link(&target.to_string_lossy()) {
+                    studio.notify(&err, true);
+                }
             }
             SettingsMsg::ModelActivated(id) => {
                 if self.is_transcriber(&id) {
@@ -719,12 +757,18 @@ impl SettingsPane {
         let dirs = studio.host.dirs.clone();
         let prefs = &studio.prefs.server;
         if !prefs.enabled {
+            if self.pairing_active {
+                self.apply_pairing(studio, false);
+            }
             return;
         }
         // A token being typed is weak until it is long enough; the switch
         // stays on and the server waits for it, rather than the switch
         // flipping off at the first keystroke.
         if !prefs.token.is_empty() && concat_server::check_token(&prefs.token).is_err() {
+            if self.pairing_active {
+                self.apply_pairing(studio, false);
+            }
             self.server_error = tf("settings.tokenTooWeak", &[&concat_server::MIN_TOKEN_CHARS]);
             return;
         }
@@ -761,6 +805,139 @@ impl SettingsPane {
                 studio.notify(&error, true);
             }
         }
+        if self.pairing_active {
+            if studio.host.server.is_some() {
+                self.apply_pairing(studio, true);
+            } else {
+                self.apply_pairing(studio, false);
+            }
+        }
+    }
+
+    fn default_pairing_inbox() -> std::path::PathBuf {
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        {
+            if let Some(home) = concat_server::home_root().into_iter().next() {
+                return home.join("Concat").join("Inbox");
+            }
+        }
+        std::path::PathBuf::from("Inbox")
+    }
+
+    fn apply_pairing(&mut self, studio: &mut Studio, enable: bool) {
+        #[cfg(any(target_os = "android", target_os = "ios"))]
+        {
+            let _ = (studio, enable);
+            self.pairing_active = false;
+            self.pairing_url.clear();
+            self.pairing_error = "Phone pairing is only available on desktop.".to_owned();
+            self.pairing_qr = slint::Image::default();
+        }
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
+        {
+            studio.host.pairing.take();
+            if !enable {
+                self.pairing_active = false;
+                self.pairing_url.clear();
+                self.pairing_error.clear();
+                self.pairing_qr = slint::Image::default();
+                return;
+            }
+            self.pairing_error.clear();
+            if studio.host.server.is_none() {
+                studio.prefs.server.enabled = true;
+                studio.prefs.save(&studio.host.dirs);
+                // Guard against recursion: clear flag before restarting server, then re-enable.
+                self.pairing_active = false;
+                self.apply_server(studio);
+            }
+            let Some(server) = studio.host.server.as_ref() else {
+                self.pairing_active = false;
+                self.pairing_error = if self.server_error.is_empty() {
+                    "Local server could not start for phone pairing.".to_owned()
+                } else {
+                    self.server_error.clone()
+                };
+                return;
+            };
+            match Self::start_phone_pairing(server) {
+                Ok((door, url, inbox)) => {
+                    self.pairing_qr = Self::render_qr_image(&url);
+                    self.pairing_url = url;
+                    self.pairing_inbox = inbox.to_string_lossy().into_owned();
+                    self.pairing_active = true;
+                    studio.host.pairing = Some(door);
+                }
+                Err(err) => {
+                    self.pairing_active = false;
+                    self.pairing_url.clear();
+                    self.pairing_qr = slint::Image::default();
+                    self.pairing_error = err.clone();
+                    studio.notify(&err, true);
+                }
+            }
+        }
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    fn start_phone_pairing(
+        server: &concat_server::Server,
+    ) -> Result<(concat_server::pair::Pairing, String, std::path::PathBuf), String> {
+        use concat_server::pair;
+        let forward_to = server
+            .json_addr()
+            .map(concat_server::loopback)
+            .ok_or_else(|| "JSON-RPC server has no local address.".to_owned())?;
+        let home = concat_server::home_root()
+            .into_iter()
+            .next()
+            .ok_or_else(|| "No home directory for the pairing certificate.".to_owned())?;
+        let identity = pair::Identity::load_or_create(&home.join(".concat"))?;
+        let inbox = home.join("Concat").join("Inbox");
+        let _ = std::fs::create_dir_all(&inbox);
+        let door = pair::Pairing::start(
+            &identity,
+            pair::Config {
+                listen: std::net::SocketAddr::from(([0, 0, 0, 0], 0)),
+                forward_to,
+                token: server.token().to_owned(),
+                inbox: inbox.clone(),
+            },
+        )?;
+        let host = pair::lan_address()
+            .ok_or_else(|| "No LAN Wi-Fi address found; connect both PC and phone to the same Wi-Fi.".to_owned())?;
+        let url = pair::pairing_url(host, door.addr().port(), server.token(), identity.fingerprint());
+        Ok((door, url, inbox))
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    fn render_qr_image(url: &str) -> slint::Image {
+        let Ok(code) = qrcode::QrCode::new(url.as_bytes()) else {
+            return slint::Image::default();
+        };
+        let quiet = 2usize;
+        let scale = 6usize;
+        let n = code.width();
+        let side = (n + quiet * 2) * scale;
+        let mut buf = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::new(side as u32, side as u32);
+        let pixels = buf.make_mut_slice();
+        for py in 0..side {
+            let my = py / scale;
+            for px in 0..side {
+                let mx = px / scale;
+                let dark = mx >= quiet
+                    && my >= quiet
+                    && mx < n + quiet
+                    && my < n + quiet
+                    && matches!(code[(mx - quiet, my - quiet)], qrcode::Color::Dark);
+                pixels[py * side + px] = if dark {
+                    slint::Rgba8Pixel { r: 22, g: 24, b: 35, a: 255 }
+                } else {
+                    slint::Rgba8Pixel { r: 255, g: 255, b: 255, a: 255 }
+                };
+            }
+        }
+        slint::Image::from_rgba8(buf)
     }
 
     /// What the Automation page says under the switch.
@@ -973,6 +1150,28 @@ impl SettingsPane {
                 None => 0,
             },
             server_local: is_loopback(&split_listen(&studio.prefs.server.listen).0),
+            pairing_active: self.pairing_active,
+            pairing_url: self.pairing_url.as_str().into(),
+            pairing_inbox: if self.pairing_inbox.is_empty() {
+                Self::default_pairing_inbox().to_string_lossy().into_owned().into()
+            } else {
+                self.pairing_inbox.as_str().into()
+            },
+            pairing_status: if !self.pairing_error.is_empty() {
+                self.pairing_error.as_str().into()
+            } else if self.pairing_active {
+                format!("Wi-Fi TLS ready. Pushed projects land in: {}", self.pairing_inbox).into()
+            } else {
+                "Turn on (or File -> Receive from phone (QR)...) to show a scannable QR code.".into()
+            },
+            pairing_state: if self.pairing_active {
+                1
+            } else if !self.pairing_error.is_empty() {
+                2
+            } else {
+                0
+            },
+            pairing_qr: self.pairing_qr.clone(),
             disk: {
                 let on_disk: Vec<&ModelState> = installed(&self.transcribers)
                     .into_iter()
@@ -1322,5 +1521,13 @@ mod listen_tests {
             "bare IPv6 is a host"
         );
         assert_eq!(join_listen("", 9000), "127.0.0.1:9000");
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    #[test]
+    fn qr_image_renders_square_bitmap() {
+        let img = SettingsPane::render_qr_image("concat://pair?h=192.168.1.5&p=7421&t=tok&f=abcd");
+        let sz = img.size();
+        assert!(sz.width > 0 && sz.width == sz.height, "unexpected qr image size: {sz:?}");
     }
 }

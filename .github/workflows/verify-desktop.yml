@@ -459,6 +459,7 @@ jobs:
               }
             }
           }
+          $env:CONCAT_GPU = "software"
           .\out-win\concat.exe --version
           .\out-win\concat.exe --smoke
           .\out-win\concat-cli.exe --version
