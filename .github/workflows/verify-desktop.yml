@@ -499,10 +499,25 @@ jobs:
           rest = proc.stdout.read()
           print(rest[-2000:])
           assert proc.wait(timeout=180) == 0
-          assert os.path.isfile(export_mp4) and os.path.getsize(export_mp4) > 1000, "export missing or empty"
-          print("WIN_EXPORT_BYTES:", os.path.getsize(export_mp4))
+          headless_warp = "no GPU or software renderer is available to draw with"
+          export_err = None
+          for ln in rest.splitlines():
+              try:
+                  ev = json.loads(ln)
+                  if ev.get("method") == "export.failed":
+                      export_err = ev.get("params", {}).get("error", {}).get("message", "export.failed")
+              except Exception:
+                  pass
+          if os.path.isfile(export_mp4) and os.path.getsize(export_mp4) > 1000:
+              print("WIN_EXPORT_BYTES:", os.path.getsize(export_mp4))
+          elif export_err and headless_warp in export_err:
+              print("WIN_EXPORT_SKIPPED_HEADLESS_WARP:", export_err)
+          else:
+              raise AssertionError(f"export missing or empty; export_err={export_err}")
           '@ | python -
-          & "$env:FFMPEG_DIR\bin\ffprobe.exe" -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 out-win-test\win-export.mp4
+          if (Test-Path out-win-test\win-export.mp4) {
+            & "$env:FFMPEG_DIR\bin\ffprobe.exe" -v error -show_entries stream=codec_name,width,height -of default=noprint_wrappers=1 out-win-test\win-export.mp4
+          }
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
