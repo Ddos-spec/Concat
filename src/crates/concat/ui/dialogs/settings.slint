@@ -1560,14 +1560,17 @@ export component SettingsDialog inherits Modal {
                             }
                         }
 
-                        pair-url-copy := TextInput {
-                            x: 0;
-                            y: 0;
-                            width: 1px;
-                            height: 1px;
-                            opacity: 0;
-                            text: root.data.pairing-url;
-                            read-only: true;
+                        Rectangle {
+                            height: 0px;
+                            clip: true;
+
+                            pair-url-copy := TextInput {
+                                width: 1px;
+                                height: 1px;
+                                opacity: 0;
+                                text: root.data.pairing-url;
+                                read-only: true;
+                            }
                         }
 
                         Timer {
